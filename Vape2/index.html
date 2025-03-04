@@ -1,0 +1,1114 @@
+/* Location permission modal */
+    .modal {<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CloudChasers™ - Vape Vending Locator</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+
+    body {
+      background-color: #121826;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 1.5rem;
+      position: relative;
+      cursor: none; /* Hide the default cursor */
+    }
+
+    header {
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #a78bfa;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      color: #94a3b8;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 1024px) {
+      .container {
+        flex-direction: row;
+      }
+    }
+
+    .sidebar {
+      background-color: #1e293b;
+      border-radius: 0.75rem;
+      padding: 1rem;
+      width: 100%;
+    }
+
+    @media (min-width: 1024px) {
+      .sidebar {
+        width: 33.333333%;
+      }
+    }
+
+    .search-container {
+      position: relative;
+      margin-bottom: 1rem;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.75rem;
+      top: 0.75rem;
+      color: #94a3b8;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      background-color: #334155;
+      border: none;
+      border-radius: 0.5rem;
+      padding: 0.5rem 1rem 0.5rem 2.5rem;
+      color: #e2e8f0;
+      outline: none;
+    }
+
+    input[type="text"]:focus {
+      box-shadow: 0 0 0 2px #a78bfa;
+    }
+
+    .location-list {
+      max-height: 24rem;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+    }
+
+    .location-item {
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 0.75rem;
+      background-color: #334155;
+    }
+
+    .location-item:hover {
+      background-color: #475569;
+    }
+
+    .location-item.selected {
+      background-color: #5b21b6;
+      border-left: 4px solid #a78bfa;
+    }
+
+    .location-header {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .location-icon {
+      margin-top: 0.25rem;
+      flex-shrink: 0;
+      color: #a78bfa;
+    }
+
+    .location-name {
+      font-weight: 500;
+    }
+
+    .location-address {
+      font-size: 0.875rem;
+      color: #94a3b8;
+    }
+
+    .location-stock {
+      display: flex;
+      align-items: center;
+      margin-top: 0.25rem;
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    .location-distance {
+      display: flex;
+      align-items: center;
+      margin-top: 0.25rem;
+      font-size: 0.75rem;
+      color: #a78bfa;
+    }
+
+    .stock-icon, .distance-icon {
+      margin-right: 0.25rem;
+    }
+
+    .content {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 1024px) {
+      .content {
+        width: 66.666667%;
+      }
+    }
+
+    .map-container {
+      background-color: #1e293b;
+      border-radius: 0.75rem;
+      padding: 1rem;
+      height: 16rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .map-content {
+      text-align: center;
+      width: 100%;
+    }
+
+    .map-markers {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .map-marker {
+      padding: 0.25rem 0.75rem;
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background-color: #334155;
+      color: #cbd5e1;
+    }
+
+    .map-marker:hover {
+      background-color: #475569;
+    }
+
+    .map-marker.selected {
+      background-color: #a78bfa;
+      color: white;
+    }
+
+    .map-marker-icon {
+      margin-right: 0.25rem;
+    }
+
+    .map-marker-name {
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .map-placeholder {
+      color: #94a3b8;
+    }
+
+    .map-count {
+      font-size: 0.875rem;
+      color: #64748b;
+      margin-top: 0.5rem;
+    }
+
+    .details-container {
+      background-color: #1e293b;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      min-height: 16rem;
+    }
+
+    .details-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 16rem;
+      color: #94a3b8;
+    }
+
+    .details-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 1rem;
+    }
+
+    .details-title {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #a78bfa;
+    }
+
+    .details-address {
+      color: #94a3b8;
+    }
+
+    .details-status {
+      background-color: #334155;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+    }
+
+    .stock-section {
+      margin-top: 1.5rem;
+    }
+
+    .stock-title {
+      font-size: 1.125rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .stock-title-icon {
+      margin-right: 0.5rem;
+      color: #a78bfa;
+    }
+
+    .stock-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    @media (min-width: 768px) {
+      .stock-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .stock-item {
+      background-color: #334155;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .stock-name {
+      font-weight: 500;
+    }
+
+    .stock-flavor {
+      font-size: 0.875rem;
+      color: #94a3b8;
+    }
+
+    .stock-price {
+      color: #a78bfa;
+      font-weight: 500;
+      margin-top: 0.25rem;
+    }
+
+    .stock-availability {
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      align-self: start;
+    }
+
+    .in-stock {
+      background-color: #064e3b;
+      color: #6ee7b7;
+    }
+
+    .out-of-stock {
+      background-color: #7f1d1d;
+      color: #fca5a5;
+    }
+
+    /* Custom cursor and smoke */
+    .cursor {
+      position: fixed;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background-color: #a78bfa;
+      box-shadow: 0 0 8px 2px rgba(167, 139, 250, 0.5);
+      pointer-events: none;
+      z-index: 1000;
+      transform: translate(-50%, -50%);
+    }
+
+    .smoke-container {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 999;
+      overflow: hidden;
+    }
+
+    /* SVG Icons */
+    .icon {
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    .loading-message {
+      text-align: center;
+      padding: 1.5rem;
+      color: #94a3b8;
+    }
+
+    /* Google Maps link button */
+    .maps-link-button {
+      display: inline-flex;
+      align-items: center;
+      background-color: #4285F4;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: 500;
+      transition: all 0.2s;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+
+    .maps-link-button:hover {
+      background-color: #3367D6;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .maps-icon {
+      margin-right: 8px;
+    }
+      display: none;
+      position: fixed;
+      z-index: 1001;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(5px);
+    }
+
+    .modal-content {
+      background-color: #1e293b;
+      margin: 15% auto;
+      padding: 2rem;
+      border-radius: 1rem;
+      max-width: 500px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-title {
+      font-size: 1.5rem;
+      color: #a78bfa;
+      margin-bottom: 1rem;
+    }
+
+    .modal-text {
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+    }
+
+    .btn {
+      padding: 0.5rem 1.5rem;
+      border-radius: 0.5rem;
+      border: none;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background-color: #a78bfa;
+      color: #1e293b;
+    }
+
+    .btn-primary:hover {
+      background-color: #8b5cf6;
+    }
+
+    .btn-secondary {
+      background-color: transparent;
+      color: #94a3b8;
+      border: 1px solid #475569;
+    }
+
+    .btn-secondary:hover {
+      background-color: #334155;
+    }
+  </style>
+</head>
+<body>
+  <!-- Cursor and smoke elements will be created by JS -->
+  <div id="smoke-container" class="smoke-container"></div>
+  <div id="custom-cursor" class="cursor"></div>
+
+  <!-- Location permission modal -->
+  <div id="location-modal" class="modal">
+    <div class="modal-content">
+      <h2 class="modal-title">Enable Location Services</h2>
+      <p class="modal-text">CloudChasers™ would like to access your location to show how far you are from our vape vending machines. This helps you find the closest options.</p>
+      <div class="modal-buttons">
+        <button id="btn-skip" class="btn btn-secondary">Skip</button>
+        <button id="btn-allow" class="btn btn-primary">Allow Location</button>
+      </div>
+    </div>
+  </div>
+
+  <header>
+    <h1>CloudChasers™</h1>
+    <p>Premium Vape Vending Network • Pretoria</p>
+  </header>
+
+  <div class="container">
+    <!-- Left sidebar - search and locations -->
+    <div class="sidebar">
+      <div class="search-container">
+        <svg class="search-icon icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="search-input" placeholder="Search locations...">
+      </div>
+
+      <div id="location-list" class="location-list">
+        <p class="loading-message">Loading locations...</p>
+      </div>
+    </div>
+
+    <!-- Right content - map and selected location details -->
+    <div class="content">
+      <!-- Map placeholder -->
+      <div class="map-container">
+        <div class="map-content">
+          <div id="map-markers" class="map-markers">
+            <!-- Map markers will be inserted here by JS -->
+          </div>
+          <p class="map-placeholder">Interactive map would display here</p>
+          <p id="map-count" class="map-count">Showing ${filteredLocations.length} vape vending machines in Pretoria</p>
+          
+          <!-- Google Maps link button (hidden until location is selected) -->
+          <div id="maps-link-container" style="display: none; margin-top: 15px;">
+            <a id="google-maps-link" href="#" target="_blank" class="maps-link-button">
+              <svg class="maps-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+              </svg>
+              View on Google Maps
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected location details -->
+      <div id="details-container" class="details-container">
+        <div class="details-empty">
+          <p>Select a location to view details</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Mock data for vape vending machines in Pretoria
+    const locations = [
+      {
+        id: 1,
+        name: "Hatfield Mall",
+        address: "1122 Burnett Street, Hatfield, Pretoria",
+        coordinates: { lat: -25.749, lng: 28.235 },
+        stock: [
+          { name: "VUSE", flavor: "Berry Blend", price: "R299", available: 8 },
+          { name: "VUSE", flavor: "Menthol", price: "R299", available: 5 },
+          { name: "Nasty", flavor: "Amber", price: "R290", available: 12 },
+          { name: "Airpops", flavor: "Vanilla Ice", price: "R350", available: 3 }
+        ]
+      },
+      {
+        id: 2,
+        name: "Brooklyn Square",
+        address: "Corner Veale & Fehrsen Streets, Brooklyn, Pretoria",
+        coordinates: { lat: -25.771, lng: 28.241 },
+        stock: [
+          { name: "Nasty", flavor: "Blue Razz", price: "R290", available: 6 },
+          { name: "VUSE", flavor: "Menthol", price: "R299", available: 0 },
+          { name: "Nasty", flavor: "Blue", price: "R290", available: 15 },
+          { name: "Airpops", flavor: "Mango", price: "R350", available: 7 }
+        ]
+      },
+      {
+        id: 3,
+        name: "Menlyn Park",
+        address: "Cnr Lois & Aramist Avenue, Menlyn, Pretoria",
+        coordinates: { lat: -25.782, lng: 28.276 },
+        stock: [
+          { name: "VUSE", flavor: "Classic Tobacco", price: "R299", available: 10 },
+          { name: "VUSE", flavor: "Menthol", price: "R299", available: 8 },
+          { name: "Nasty", flavor: "Strawberry", price: "R290", available: 4 },
+          { name: "Airpops", flavor: "Watermelon", price: "R350", available: 2 }
+        ]
+      },
+      {
+        id: 4,
+        name: "Sunnyside Plaza",
+        address: "253 Jorissen Street, Sunnyside, Pretoria",
+        coordinates: { lat: -25.755, lng: 28.219 },
+        stock: [
+          { name: "Nasty", flavor: "Yellow", price: "R290", available: 20 },
+          { name: "Nasty", flavor: "Mint", price: "R290", available: 5 },
+          { name: "Airpops", flavor: "Coffee", price: "R350", available: 6 },
+          { name: "VUSE", flavor: "Berry Blend", price: "R299", available: 3 }
+        ]
+      },
+      {
+        id: 5,
+        name: "Arcadia Center",
+        address: "1106 Park Street, Arcadia, Pretoria",
+        coordinates: { lat: -25.744, lng: 28.218 },
+        stock: [
+          { name: "Nasty", flavor: "Cherry", price: "R290", available: 9 },
+          { name: "VUSE", flavor: "Classic Tobacco", price: "R299", available: 7 },
+          { name: "Nasty", flavor: "Sienna", price: "R290", available: 14 },
+          { name: "Airpops", flavor: "Vanilla Ice", price: "R350", available: 0 }
+        ]
+      }
+    ];
+
+    // DOM elements
+    const searchInput = document.getElementById('search-input');
+    const locationList = document.getElementById('location-list');
+    const mapMarkers = document.getElementById('map-markers');
+    const mapCount = document.getElementById('map-count');
+    const detailsContainer = document.getElementById('details-container');
+    const customCursor = document.getElementById('custom-cursor');
+    const smokeContainer = document.getElementById('smoke-container');
+    const locationModal = document.getElementById('location-modal');
+    const btnAllow = document.getElementById('btn-allow');
+    const btnSkip = document.getElementById('btn-skip');
+    const mapsLinkContainer = document.getElementById('maps-link-container');
+    const googleMapsLink = document.getElementById('google-maps-link');
+
+    // State
+    let selectedLocationId = null;
+    let filteredLocations = [...locations];
+    let particles = [];
+    let lastTimeParticleCreated = 0;
+    let lastMouseX = window.innerWidth / 2;
+    let lastMouseY = window.innerHeight / 2;
+    let mouseX = lastMouseX;
+    let mouseY = lastMouseY;
+    let userLocation = null;
+
+    // Initialize the application
+    function init() {
+      setTimeout(() => {
+        renderLocationList();
+        renderMapMarkers();
+        updateMapCount();
+      }, 1000); // Simulate loading time
+
+      // Setup event listeners
+      searchInput.addEventListener('input', handleSearch);
+      
+      // Setup cursor and smoke effect
+      setupCursorEffect();
+      
+      // Show location permission modal
+      setTimeout(() => {
+        locationModal.style.display = 'block';
+      }, 1500);
+      
+      // Setup location modal buttons
+      btnAllow.addEventListener('click', () => {
+        locationModal.style.display = 'none';
+        getUserLocation();
+      });
+      
+      btnSkip.addEventListener('click', () => {
+        locationModal.style.display = 'none';
+      });
+    }
+
+    // Get user's location
+    function getUserLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            userLocation = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+            
+            // Calculate distances
+            locations.forEach(location => {
+              location.distance = calculateDistance(
+                userLocation.lat,
+                userLocation.lng,
+                location.coordinates.lat,
+                location.coordinates.lng
+              );
+            });
+            
+            // Re-render with distance information
+            renderLocationList();
+            renderMapMarkers();
+            if (selectedLocationId !== null) {
+              renderDetailsPanel();
+            }
+          },
+          (error) => {
+            console.error("Error getting location:", error);
+          }
+        );
+      } else {
+        console.error("Geolocation is not supported by this browser.");
+      }
+    }
+
+    // Calculate distance between two coordinates using Haversine formula (in km)
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Radius of the earth in km
+      const dLat = deg2rad(lat2 - lat1);
+      const dLon = deg2rad(lon2 - lon1);
+      const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2); 
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+      const distance = R * c; // Distance in km
+      return distance;
+    }
+    
+    function deg2rad(deg) {
+      return deg * (Math.PI/180);
+    }
+    
+    // Format distance for display
+    function formatDistance(distance) {
+      if (distance < 1) {
+        // If less than 1 km, show in meters
+        return `${Math.round(distance * 1000)} m`;
+      } else {
+        // Otherwise show in km with 1 decimal place
+        return `${distance.toFixed(1)} km`;
+      }
+    }
+
+    // Filter locations based on search term
+    function handleSearch() {
+      const searchTerm = searchInput.value.toLowerCase();
+      filteredLocations = locations.filter(location => 
+        location.name.toLowerCase().includes(searchTerm) ||
+        location.address.toLowerCase().includes(searchTerm)
+      );
+      
+      renderLocationList();
+      renderMapMarkers();
+      updateMapCount();
+      
+      // Clear selection if filtered out
+      if (selectedLocationId !== null) {
+        const locationExists = filteredLocations.some(loc => loc.id === selectedLocationId);
+        if (!locationExists) {
+          selectLocation(null);
+        }
+      }
+    }
+
+    // Select a location and show its details
+    function selectLocation(locationId) {
+      selectedLocationId = locationId;
+      
+      // Update location list UI
+      document.querySelectorAll('.location-item').forEach(item => {
+        item.classList.toggle('selected', parseInt(item.dataset.id) === locationId);
+      });
+      
+      // Update map markers UI
+      document.querySelectorAll('.map-marker').forEach(marker => {
+        marker.classList.toggle('selected', parseInt(marker.dataset.id) === locationId);
+      });
+      
+      // Update Google Maps link
+      if (locationId) {
+        const location = locations.find(loc => loc.id === locationId);
+        if (location) {
+          const { lat, lng } = location.coordinates;
+          googleMapsLink.href = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+          mapsLinkContainer.style.display = 'block';
+        }
+      } else {
+        mapsLinkContainer.style.display = 'none';
+      }
+      
+      // Update details panel
+      renderDetailsPanel();
+    }
+
+    // Render the list of locations
+    function renderLocationList() {
+      if (filteredLocations.length === 0) {
+        locationList.innerHTML = '<p class="loading-message">No locations found</p>';
+        return;
+      }
+      
+      // Copy and potentially sort the locations
+      let locationsToRender = [...filteredLocations];
+      
+      // Sort by distance if user location is available
+      if (userLocation) {
+        locationsToRender.sort((a, b) => a.distance - b.distance);
+      }
+      
+      locationList.innerHTML = '';
+      locationsToRender.forEach(location => {
+        const availableProducts = location.stock.filter(item => item.available > 0).length;
+        const locationItem = document.createElement('div');
+        locationItem.className = `location-item ${location.id === selectedLocationId ? 'selected' : ''}`;
+        locationItem.dataset.id = location.id;
+        
+        // Distance HTML if available
+        let distanceHTML = '';
+        if (userLocation && location.distance !== undefined) {
+          distanceHTML = `
+            <div class="location-distance">
+              <svg class="distance-icon icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              <span>${formatDistance(location.distance)} away</span>
+            </div>
+          `;
+        }
+        
+        locationItem.innerHTML = `
+          <div class="location-header">
+            <svg class="location-icon icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+            <div>
+              <div class="location-name">${location.name}</div>
+              <div class="location-address">${location.address}</div>
+              ${distanceHTML}
+              <div class="location-stock">
+                <svg class="stock-icon icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                </svg>
+                <span>${availableProducts} products available</span>
+              </div>
+            </div>
+          </div>
+        `;
+        locationItem.addEventListener('click', () => selectLocation(location.id));
+        locationList.appendChild(locationItem);
+      });
+    }
+
+    // Render map markers
+    function renderMapMarkers() {
+      mapMarkers.innerHTML = '';
+      
+      // Copy and potentially sort the locations
+      let locationsToRender = [...filteredLocations];
+      
+      // Sort by distance if user location is available
+      if (userLocation) {
+        locationsToRender.sort((a, b) => a.distance - b.distance);
+      }
+      
+      locationsToRender.forEach(location => {
+        const marker = document.createElement('div');
+        marker.className = `map-marker ${location.id === selectedLocationId ? 'selected' : ''}`;
+        marker.dataset.id = location.id;
+        
+        // Include distance if available
+        let markerText = location.name;
+        if (userLocation && location.distance !== undefined) {
+          markerText = `${location.name} (${formatDistance(location.distance)})`;
+        }
+        
+        marker.innerHTML = `
+          <svg class="map-marker-icon icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+          </svg>
+          <span class="map-marker-name">${markerText}</span>
+        `;
+        marker.addEventListener('click', () => selectLocation(location.id));
+        mapMarkers.appendChild(marker);
+      });
+    }
+
+    // Update map count text
+    function updateMapCount() {
+      mapCount.textContent = `Showing ${filteredLocations.length} vape vending machines in Pretoria`;
+    }
+
+    // Render details panel for selected location
+    function renderDetailsPanel() {
+      if (selectedLocationId === null) {
+        detailsContainer.innerHTML = `
+          <div class="details-empty">
+            <p>Select a location to view details</p>
+          </div>
+        `;
+        mapsLinkContainer.style.display = 'none';
+        return;
+      }
+      
+      const location = locations.find(loc => loc.id === selectedLocationId);
+      if (!location) return;
+      
+      // Add distance information if available
+      let distanceHTML = '';
+      if (userLocation && location.distance !== undefined) {
+        distanceHTML = `
+          <p class="location-distance" style="margin-top: 8px;">
+            <svg class="distance-icon icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span>${formatDistance(location.distance)} from your location</span>
+          </p>
+        `;
+      }
+      
+      let stockHTML = '';
+      location.stock.forEach(item => {
+        stockHTML += `
+          <div class="stock-item">
+            <div>
+              <div class="stock-name">${item.name}</div>
+              <div class="stock-flavor">${item.flavor}</div>
+              <div class="stock-price">${item.price}</div>
+            </div>
+            <div class="stock-availability ${item.available > 0 ? 'in-stock' : 'out-of-stock'}">
+              ${item.available > 0 ? `${item.available} left` : 'Out of stock'}
+            </div>
+          </div>
+        `;
+      });
+      
+      detailsContainer.innerHTML = `
+        <div class="details-header">
+          <div>
+            <h2 class="details-title">${location.name}</h2>
+            <p class="details-address">${location.address}</p>
+            ${distanceHTML}
+          </div>
+          <div class="details-status">Open 24/7</div>
+        </div>
+        
+        <div class="stock-section">
+          <h3 class="stock-title">
+            <svg class="stock-title-icon icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 10h-7l3-3"></path>
+              <path d="M18 14h-7l3 3"></path>
+              <path d="M8 18.945V20a2 2 0 01-2 2H2"></path>
+              <path d="M2 6v12"></path>
+              <path d="M6 2H4a2 2 0 00-2 2v2"></path>
+            </svg>
+            Current Stock
+          </h3>
+          
+          <div class="stock-grid">
+            ${stockHTML}
+          </div>
+        </div>
+      `;
+    }
+
+    // Setup the custom cursor and smoke effect
+    function setupCursorEffect() {
+      // Setup cursor
+      document.addEventListener('mousemove', (e) => {
+        const currentX = e.clientX;
+        const currentY = e.clientY;
+        
+        // Calculate movement distance
+        const moveDistance = Math.sqrt(
+          Math.pow(currentX - lastMouseX, 2) + 
+          Math.pow(currentY - lastMouseY, 2)
+        );
+        
+        // Update cursor position
+        mouseX = currentX;
+        mouseY = currentY;
+        customCursor.style.left = `${mouseX}px`;
+        customCursor.style.top = `${mouseY}px`;
+        
+        // Create particles based on mouse speed and time
+        const now = Date.now();
+        const particlesPerMove = Math.min(Math.ceil(moveDistance / 10), 5);
+        
+        if (now - lastTimeParticleCreated > 15) {
+          for (let i = 0; i < particlesPerMove; i++) {
+            createSmokeParticle();
+          }
+          lastTimeParticleCreated = now;
+        }
+        
+        lastMouseX = currentX;
+        lastMouseY = currentY;
+      });
+      
+      // Create idle smoke periodically
+      setInterval(() => {
+        if (Math.random() > 0.7) {
+          createSmokeParticle();
+        }
+      }, 100);
+      
+      // Animate smoke particles
+      setInterval(animateSmokeParticles, 16);
+    }
+
+    // Create a new smoke particle
+    function createSmokeParticle() {
+      // Create new particle element
+      const particle = document.createElement('div');
+      
+      // Random size for varied smoke appearance
+      const size = Math.floor(Math.random() * 18) + 12;
+      
+      // Varied offsets from cursor
+      const offsetX = (Math.random() - 0.5) * 10;
+      const offsetY = (Math.random() - 0.5) * 10;
+      
+      // Variable movement patterns
+      const speedX = (Math.random() - 0.5) * 1.5;
+      const speedY = (Math.random() * -2.2) - 0.6; // Upward drift
+      const rotation = Math.random() * 360;
+      const rotationSpeed = (Math.random() - 0.5) * 1.2;
+      
+      // Random blur for soft edges
+      const blurAmount = Math.random() * 4 + 2;
+      
+      // Slight color variation
+      const hue = 220 + Math.random() * 40; // Slight blue tint
+      const saturation = Math.random() * 5; // Very subtle saturation
+      const lightness = 95 + Math.random() * 5; // Nearly white
+      const color1 = `hsla(${hue}, ${saturation}%, ${lightness}%, ${0.65 + Math.random() * 0.25})`;
+      const color2 = `hsla(${hue}, ${saturation}%, ${lightness}%, 0)`;
+      
+      // Apply styles
+      particle.style.position = 'absolute';
+      particle.style.width = `${size}px`;
+      particle.style.height = `${size}px`;
+      particle.style.left = `${mouseX + offsetX}px`;
+      particle.style.top = `${mouseY + offsetY}px`;
+      particle.style.borderRadius = '50%';
+      particle.style.opacity = `${0.4 + Math.random() * 0.4}`;
+      particle.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+      particle.style.filter = `blur(${blurAmount}px)`;
+      particle.style.background = `radial-gradient(circle, ${color1} 0%, ${color2} 80%)`;
+      particle.style.mixBlendMode = 'screen';
+      particle.style.transition = 'opacity 0.6s ease-out';
+      
+      // Add to container
+      smokeContainer.appendChild(particle);
+      
+      // Store particle data
+      particles.push({
+        element: particle,
+        size: size,
+        speedX: speedX,
+        speedY: speedY,
+        rotation: rotation,
+        rotationSpeed: rotationSpeed,
+        opacity: 0.4 + Math.random() * 0.4,
+        x: mouseX + offsetX,
+        y: mouseY + offsetY,
+        growRate: 0.2 + Math.random() * 0.2,
+        fadeRate: 0.004 + Math.random() * 0.004,
+        maxSize: size * (3 + Math.random() * 3),
+        turbulenceX: Math.random() * 0.05 - 0.025,
+        turbulenceY: Math.random() * 0.05 - 0.025,
+        turbulencePhase: Math.random() * Math.PI * 2
+      });
+      
+      // Limit particles to prevent performance issues
+      if (particles.length > 75) {
+        smokeContainer.removeChild(particles[0].element);
+        particles.shift();
+      }
+    }
+
+    // Animate smoke particles
+    function animateSmokeParticles() {
+      const particlesToRemove = [];
+      
+      particles.forEach((particle, index) => {
+        // Add turbulence for natural movement
+        particle.turbulencePhase += 0.05;
+        const turbX = Math.sin(particle.turbulencePhase) * particle.turbulenceX;
+        const turbY = Math.cos(particle.turbulencePhase) * particle.turbulenceY;
+        
+        // Gradual slowdown of horizontal movement
+        particle.speedX *= 0.992;
+        // Slight acceleration upward
+        particle.speedY *= 1.005;
+        
+        // Update position with turbulence
+        particle.x += particle.speedX + turbX;
+        particle.y += particle.speedY + turbY;
+        
+        // Update size and opacity
+        if (particle.size < particle.maxSize) {
+          particle.size += particle.growRate;
+        }
+        particle.opacity -= particle.fadeRate;
+        
+        // Update rotation for swirling effect
+        particle.rotation += particle.rotationSpeed;
+        
+        // Apply updates to DOM element
+        particle.element.style.left = `${particle.x}px`;
+        particle.element.style.top = `${particle.y}px`;
+        particle.element.style.width = `${particle.size}px`;
+        particle.element.style.height = `${particle.size}px`;
+        particle.element.style.opacity = particle.opacity;
+        particle.element.style.transform = `translate(-50%, -50%) rotate(${particle.rotation}deg) scale(${1 + Math.sin(particle.turbulencePhase) * 0.05})`;
+        
+        // Mark for removal if too faded
+        if (particle.opacity <= 0.02) {
+          particlesToRemove.push(index);
+        }
+      });
+      
+      // Remove faded particles
+      for (let i = particlesToRemove.length - 1; i >= 0; i--) {
+        const index = particlesToRemove[i];
+        if (particles[index] && particles[index].element) {
+          smokeContainer.removeChild(particles[index].element);
+          particles.splice(index, 1);
+        }
+      }
+    }
+
+    // Initialize the application
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>
