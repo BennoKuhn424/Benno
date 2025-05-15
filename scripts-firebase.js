@@ -210,89 +210,66 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show loading indicator
         productContent.innerHTML = '<p>Loading products...</p>';
 
-        // Get products from Firebase
-        database.ref('products').on('value', (snapshot) => {
-            const productsObj = snapshot.val() || {};
-            
-            // If no products, add sample products to Firebase
-            if (!productsObj || Object.keys(productsObj).length === 0) {
-                const sampleProducts = [
-                    { title: 'Juniper Bonsai', price: 250, image: 'Fotos/Juniper-Bonsai.jpg', category: 'beginner,outdoor', inStock: true },
-                    { title: 'Maple Bonsai', price: 450, image: 'Fotos/Maple-Bonsai.jpg', category: 'intermediate,outdoor', inStock: true },
-                    { title: 'Ficus Bonsai', price: 350, image: 'Fotos/Ficus-Bonsai.jpg', category: 'beginner,indoor', inStock: true },
-                    { title: 'Pine Bonsai', price: 550, image: 'Fotos/Pine-Bonsai.jpg', category: 'advanced,outdoor', inStock: false },
-                    { title: 'Jade Bonsai', price: 300, image: 'Fotos/Jade-Bonsai.webp', category: 'beginner,indoor', inStock: true },
-                    { title: 'Cedar Bonsai', price: 500, image: 'Fotos/Cedar-Bonsai.webp', category: 'intermediate,outdoor', inStock: true }
-                ];
-                
-                // Use batch update to add all sample products at once
-                const updates = {};
-                sampleProducts.forEach((product, index) => {
-                    updates[`products/sample${index}`] = product;
-                });
-                
-                database.ref().update(updates)
-                    .then(() => console.log('Sample products added successfully'))
-                    .catch(error => console.error('Error adding sample products:', error));
-                
-                return; // Exit function, it will be called again when data is updated
-            }
-            
-            // Convert to array and filter by category
-            const products = Object.values(productsObj);
-            const productKeys = Object.keys(productsObj);
-            
-            // Filter products based on category
-            const filteredProducts = filterCategory === 'all' 
-                ? products 
-                : products.filter(p => p.category && p.category.split(',').includes(filterCategory));
-            
-            // Get filtered product keys (matching the filtered products)
-            const filteredKeys = filterCategory === 'all'
-                ? productKeys
-                : productKeys.filter((key, index) => {
-                    const p = products[index];
-                    return p.category && p.category.split(',').includes(filterCategory);
-                });
-
-            // Generate HTML for products
-            if (filteredProducts.length > 0) {
-                let productsHTML = '';
-                filteredProducts.forEach((p, index) => {
-                    const key = filteredKeys[index];
-                    productsHTML += `
-                        <div class="product-box ${p.inStock === false ? 'out-of-stock' : ''}">
-                            <div class="img-box">
-                                <img src="${p.image}" alt="${p.title}">
-                            </div>
-                            <h2 class="product-title">${p.title}</h2>
-                            <div class="rating">
-                                ${Array(5).fill('<i class="fa fa-star"></i>').join('')}
-                            </div>
-                            <p>${getCategoryText(p.category)}</p>
-                            <p class="stock-status ${p.inStock === false ? 'out-of-stock' : 'in-stock'}">
-                                ${p.inStock === false ? 'Out of Stock' : 'In Stock'}
-                            </p>
-                            <div class="price-and-cart">
-                                <span class="price">R${p.price}</span>
-                                ${p.inStock !== false 
-                                    ? `<i class="fas fa-shopping-bag add-cart" data-title="${p.title}" data-key="${key}"></i>`
-                                    : `<span class="out-of-stock-label">Unavailable</span>`
-                                }
-                            </div>
-                        </div>
-                    `;
-                });
-                productContent.innerHTML = productsHTML;
-            } else {
+        // Get products from Firestore
+        let productsQuery = db.collection('products');
+        
+        // Apply filter if not 'all'
+        if (filterCategory !== 'all') {
+            productsQuery = productsQuery.where('category', 'array-contains', filterCategory);
+        }
+        
+        productsQuery.get().then((snapshot) => {
+            if (snapshot.empty) {
                 productContent.innerHTML = '<p>No products available in this category.</p>';
+                return;
             }
-
+            
+            let productsHTML = '';
+            snapshot.forEach(doc => {
+                const p = doc.data();
+                
+                // Apply client-side filtering as a fallback (since array-contains might not work for comma-separated strings)
+                if (filterCategory !== 'all' && p.category) {
+                    const categories = p.category.split(',');
+                    if (!categories.includes(filterCategory)) {
+                        return; // Skip this product
+                    }
+                }
+                
+                productsHTML += `
+                    <div class="product-box ${p.inStock === false ? 'out-of-stock' : ''}">
+                        <div class="img-box">
+                            <img src="${p.image}" alt="${p.title}">
+                        </div>
+                        <h2 class="product-title">${p.title}</h2>
+                        <div class="rating">
+                            ${Array(5).fill('<i class="fa fa-star"></i>').join('')}
+                        </div>
+                        <p>${getCategoryText(p.category)}</p>
+                        <p class="stock-status ${p.inStock === false ? 'out-of-stock' : 'in-stock'}">
+                            ${p.inStock === false ? 'Out of Stock' : 'In Stock'}
+                        </p>
+                        <div class="price-and-cart">
+                            <span class="price">R${p.price}</span>
+                            ${p.inStock !== false 
+                                ? `<i class="fas fa-shopping-bag add-cart" data-title="${p.title}" data-id="${doc.id}"></i>`
+                                : `<span class="out-of-stock-label">Unavailable</span>`
+                            }
+                        </div>
+                    </div>
+                `;
+            });
+            
+            productContent.innerHTML = productsHTML || '<p>No products available in this category.</p>';
+            
             // Add event listeners to the add-cart buttons
             document.querySelectorAll('.add-cart').forEach(button => {
                 button.removeEventListener('click', handleAddToCart);
                 button.addEventListener('click', handleAddToCart);
             });
+        }).catch(error => {
+            console.error('Error getting products:', error);
+            productContent.innerHTML = '<p>Error loading products. Please try again later.</p>';
         });
     }
 
@@ -317,29 +294,26 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Add to cart clicked');
         const button = event.target;
         const productBox = button.closest('.product-box');
-        if (!productBox) {
-            console.error('Product box not found');
+        const productId = button.getAttribute('data-id');
+        
+        if (!productBox || !productId) {
+            console.error('Product box or ID not found');
             return;
         }
         
-        const productTitle = productBox.querySelector('.product-title').textContent;
-        
-        // Find product in Firebase using the title
-        database.ref('products').orderByChild('title').equalTo(productTitle).once('value')
-            .then((snapshot) => {
-                if (!snapshot.exists()) {
+        // Get product from Firestore
+        db.collection('products').doc(productId).get()
+            .then((doc) => {
+                if (!doc.exists) {
                     alert('Product not found.');
                     return;
                 }
                 
-                const productsObj = snapshot.val();
-                const key = Object.keys(productsObj)[0];
-                const product = productsObj[key];
-                
+                const product = doc.data();
                 addToCart(productBox, product);
             })
             .catch(error => {
-                console.error('Error getting product details:', error);
+                console.error('Error getting product:', error);
                 alert('Error adding to cart. Please try again.');
             });
     }
@@ -462,22 +436,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show loading indicator
         featuredContent.innerHTML = '<p>Loading featured products...</p>';
 
-        // Get first 3 products from Firebase
-        database.ref('products').limitToFirst(3).once('value')
+        // Get first 3 products from Firestore
+        db.collection('products').limit(3).get()
             .then((snapshot) => {
-                const productsObj = snapshot.val() || {};
-                
-                if (!productsObj || Object.keys(productsObj).length === 0) {
+                if (snapshot.empty) {
                     featuredContent.innerHTML = '<p>No featured products available.</p>';
                     return;
                 }
                 
-                const products = Object.values(productsObj);
-                const productKeys = Object.keys(productsObj);
-                
                 let featuredHTML = '';
-                products.forEach((p, index) => {
-                    const key = productKeys[index];
+                snapshot.forEach(doc => {
+                    const p = doc.data();
                     featuredHTML += `
                         <div class="product-box ${p.inStock === false ? 'out-of-stock' : ''}">
                             <div class="img-box">
@@ -494,7 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="price-and-cart">
                                 <span class="price">R${p.price}</span>
                                 ${p.inStock !== false 
-                                    ? `<i class="fas fa-shopping-bag add-cart" data-title="${p.title}" data-key="${key}"></i>`
+                                    ? `<i class="fas fa-shopping-bag add-cart" data-title="${p.title}" data-id="${doc.id}"></i>`
                                     : `<span class="out-of-stock-label">Unavailable</span>`
                                 }
                             </div>
@@ -522,6 +491,39 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         loadFeaturedProducts();
     }
+
+    // Add sample products if none exist (only run once)
+    function addSampleProductsIfNeeded() {
+        db.collection('products').get().then((snapshot) => {
+            if (snapshot.empty) {
+                console.log('Adding sample products');
+                
+                const sampleProducts = [
+                    { title: 'Juniper Bonsai', price: 250, image: 'Fotos/Juniper-Bonsai.jpg', category: 'beginner,outdoor', inStock: true },
+                    { title: 'Maple Bonsai', price: 450, image: 'Fotos/Maple-Bonsai.jpg', category: 'intermediate,outdoor', inStock: true },
+                    { title: 'Ficus Bonsai', price: 350, image: 'Fotos/Ficus-Bonsai.jpg', category: 'beginner,indoor', inStock: true },
+                    { title: 'Pine Bonsai', price: 550, image: 'Fotos/Pine-Bonsai.jpg', category: 'advanced,outdoor', inStock: false },
+                    { title: 'Jade Bonsai', price: 300, image: 'Fotos/Jade-Bonsai.webp', category: 'beginner,indoor', inStock: true },
+                    { title: 'Cedar Bonsai', price: 500, image: 'Fotos/Cedar-Bonsai.webp', category: 'intermediate,outdoor', inStock: true }
+                ];
+                
+                // Use a batch to add all sample products at once
+                const batch = db.batch();
+                
+                sampleProducts.forEach((product) => {
+                    const docRef = db.collection('products').doc();
+                    batch.set(docRef, product);
+                });
+                
+                return batch.commit();
+            }
+        }).catch(error => {
+            console.error('Error checking for sample products:', error);
+        });
+    }
+
+    // Check for sample products
+    addSampleProductsIfNeeded();
 
     // Check for logged-in user
     const currentUser = JSON.parse(localStorage.getItem('currentUser'));
