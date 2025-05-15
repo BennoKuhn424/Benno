@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('scripts.js loaded');
+    console.log('scripts-firebase.js loaded');
 
     // Initialize AOS
     try {
@@ -207,53 +207,92 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const products = JSON.parse(localStorage.getItem('products') || '[]');
-        
-        // Add sample products if none exist
-        if (products.length === 0) {
-            const sampleProducts = [
-                { title: 'Juniper Bonsai', price: 250, image: 'Fotos/Juniper-Bonsai.jpg', category: 'beginner,outdoor', inStock: true },
-                { title: 'Maple Bonsai', price: 450, image: 'Fotos/Maple-Bonsai.jpg', category: 'intermediate,outdoor', inStock: true },
-                { title: 'Ficus Bonsai', price: 350, image: 'Fotos/Ficus-Bonsai.jpg', category: 'beginner,indoor', inStock: true },
-                { title: 'Pine Bonsai', price: 550, image: 'Fotos/Pine-Bonsai.jpg', category: 'advanced,outdoor', inStock: false },
-                { title: 'Jade Bonsai', price: 300, image: 'Fotos/Jade-Bonsai.webp', category: 'beginner,indoor', inStock: true },
-                { title: 'Cedar Bonsai', price: 500, image: 'Fotos/Cedar-Bonsai.webp', category: 'intermediate,outdoor', inStock: true }
-            ];
-            localStorage.setItem('products', JSON.stringify(sampleProducts));
-            products.push(...sampleProducts);
-        }
+        // Show loading indicator
+        productContent.innerHTML = '<p>Loading products...</p>';
 
-        // Filter products based on category
-        const filteredProducts = filterCategory === 'all' 
-            ? products 
-            : products.filter(p => p.category && p.category.split(',').includes(filterCategory));
+        // Get products from Firebase
+        database.ref('products').on('value', (snapshot) => {
+            const productsObj = snapshot.val() || {};
+            
+            // If no products, add sample products to Firebase
+            if (!productsObj || Object.keys(productsObj).length === 0) {
+                const sampleProducts = [
+                    { title: 'Juniper Bonsai', price: 250, image: 'Fotos/Juniper-Bonsai.jpg', category: 'beginner,outdoor', inStock: true },
+                    { title: 'Maple Bonsai', price: 450, image: 'Fotos/Maple-Bonsai.jpg', category: 'intermediate,outdoor', inStock: true },
+                    { title: 'Ficus Bonsai', price: 350, image: 'Fotos/Ficus-Bonsai.jpg', category: 'beginner,indoor', inStock: true },
+                    { title: 'Pine Bonsai', price: 550, image: 'Fotos/Pine-Bonsai.jpg', category: 'advanced,outdoor', inStock: false },
+                    { title: 'Jade Bonsai', price: 300, image: 'Fotos/Jade-Bonsai.webp', category: 'beginner,indoor', inStock: true },
+                    { title: 'Cedar Bonsai', price: 500, image: 'Fotos/Cedar-Bonsai.webp', category: 'intermediate,outdoor', inStock: true }
+                ];
+                
+                // Use batch update to add all sample products at once
+                const updates = {};
+                sampleProducts.forEach((product, index) => {
+                    updates[`products/sample${index}`] = product;
+                });
+                
+                database.ref().update(updates)
+                    .then(() => console.log('Sample products added successfully'))
+                    .catch(error => console.error('Error adding sample products:', error));
+                
+                return; // Exit function, it will be called again when data is updated
+            }
+            
+            // Convert to array and filter by category
+            const products = Object.values(productsObj);
+            const productKeys = Object.keys(productsObj);
+            
+            // Filter products based on category
+            const filteredProducts = filterCategory === 'all' 
+                ? products 
+                : products.filter(p => p.category && p.category.split(',').includes(filterCategory));
+            
+            // Get filtered product keys (matching the filtered products)
+            const filteredKeys = filterCategory === 'all'
+                ? productKeys
+                : productKeys.filter((key, index) => {
+                    const p = products[index];
+                    return p.category && p.category.split(',').includes(filterCategory);
+                });
 
-        productContent.innerHTML = filteredProducts.length ? filteredProducts.map(p => `
-            <div class="product-box ${p.inStock === false ? 'out-of-stock' : ''}">
-                <div class="img-box">
-                    <img src="${p.image}" alt="${p.title}">
-                </div>
-                <h2 class="product-title">${p.title}</h2>
-                <div class="rating">
-                    ${Array(5).fill('<i class="fa fa-star"></i>').join('')}
-                </div>
-                <p>${getCategoryText(p.category)}</p>
-                <p class="stock-status ${p.inStock === false ? 'out-of-stock' : 'in-stock'}">
-                    ${p.inStock === false ? 'Out of Stock' : 'In Stock'}
-                </p>
-                <div class="price-and-cart">
-                    <span class="price">R${p.price}</span>
-                    ${p.inStock !== false 
-                        ? `<i class="fas fa-shopping-bag add-cart" data-title="${p.title}"></i>`
-                        : `<span class="out-of-stock-label">Unavailable</span>`
-                    }
-                </div>
-            </div>
-        `).join('') : '<p>No products available in this category.</p>';
+            // Generate HTML for products
+            if (filteredProducts.length > 0) {
+                let productsHTML = '';
+                filteredProducts.forEach((p, index) => {
+                    const key = filteredKeys[index];
+                    productsHTML += `
+                        <div class="product-box ${p.inStock === false ? 'out-of-stock' : ''}">
+                            <div class="img-box">
+                                <img src="${p.image}" alt="${p.title}">
+                            </div>
+                            <h2 class="product-title">${p.title}</h2>
+                            <div class="rating">
+                                ${Array(5).fill('<i class="fa fa-star"></i>').join('')}
+                            </div>
+                            <p>${getCategoryText(p.category)}</p>
+                            <p class="stock-status ${p.inStock === false ? 'out-of-stock' : 'in-stock'}">
+                                ${p.inStock === false ? 'Out of Stock' : 'In Stock'}
+                            </p>
+                            <div class="price-and-cart">
+                                <span class="price">R${p.price}</span>
+                                ${p.inStock !== false 
+                                    ? `<i class="fas fa-shopping-bag add-cart" data-title="${p.title}" data-key="${key}"></i>`
+                                    : `<span class="out-of-stock-label">Unavailable</span>`
+                                }
+                            </div>
+                        </div>
+                    `;
+                });
+                productContent.innerHTML = productsHTML;
+            } else {
+                productContent.innerHTML = '<p>No products available in this category.</p>';
+            }
 
-        document.querySelectorAll('.add-cart').forEach(button => {
-            button.removeEventListener('click', handleAddToCart);
-            button.addEventListener('click', handleAddToCart);
+            // Add event listeners to the add-cart buttons
+            document.querySelectorAll('.add-cart').forEach(button => {
+                button.removeEventListener('click', handleAddToCart);
+                button.addEventListener('click', handleAddToCart);
+            });
         });
     }
 
@@ -276,18 +315,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleAddToCart(event) {
         console.log('Add to cart clicked');
-        const productBox = event.target.closest('.product-box');
+        const button = event.target;
+        const productBox = button.closest('.product-box');
         if (!productBox) {
             console.error('Product box not found');
             return;
         }
-        addToCart(productBox);
+        
+        const productTitle = productBox.querySelector('.product-title').textContent;
+        
+        // Find product in Firebase using the title
+        database.ref('products').orderByChild('title').equalTo(productTitle).once('value')
+            .then((snapshot) => {
+                if (!snapshot.exists()) {
+                    alert('Product not found.');
+                    return;
+                }
+                
+                const productsObj = snapshot.val();
+                const key = Object.keys(productsObj)[0];
+                const product = productsObj[key];
+                
+                addToCart(productBox, product);
+            })
+            .catch(error => {
+                console.error('Error getting product details:', error);
+                alert('Error adding to cart. Please try again.');
+            });
     }
 
-    function addToCart(productBox) {
+    function addToCart(productBox, product) {
         const productImgSrc = productBox.querySelector('img').src;
-        const productTitle = productBox.querySelector('.product-title').textContent;
-        const productPrice = parseFloat(productBox.querySelector('.price').textContent.replace('R', ''));
+        const productTitle = product.title;
+        const productPrice = product.price;
 
         if (!productImgSrc || !productTitle || isNaN(productPrice)) {
             console.error('Invalid product data:', { productImgSrc, productTitle, productPrice });
@@ -399,36 +459,61 @@ document.addEventListener('DOMContentLoaded', () => {
         const featuredContent = document.querySelector('#featured-content');
         if (!featuredContent) return;
 
-        const products = JSON.parse(localStorage.getItem('products') || '[]');
-        const featuredProducts = products.slice(0, 3); // Show first 3 products
+        // Show loading indicator
+        featuredContent.innerHTML = '<p>Loading featured products...</p>';
 
-        featuredContent.innerHTML = featuredProducts.length ? featuredProducts.map(p => `
-            <div class="product-box ${p.inStock === false ? 'out-of-stock' : ''}">
-                <div class="img-box">
-                    <img src="${p.image}" alt="${p.title}">
-                </div>
-                <h2 class="product-title">${p.title}</h2>
-                <div class="rating">
-                    ${Array(5).fill('<i class="fa fa-star"></i>').join('')}
-                </div>
-                <p>${getCategoryText(p.category)}</p>
-                <p class="stock-status ${p.inStock === false ? 'out-of-stock' : 'in-stock'}">
-                    ${p.inStock === false ? 'Out of Stock' : 'In Stock'}
-                </p>
-                <div class="price-and-cart">
-                    <span class="price">R${p.price}</span>
-                    ${p.inStock !== false 
-                        ? `<i class="fas fa-shopping-bag add-cart" data-title="${p.title}"></i>`
-                        : `<span class="out-of-stock-label">Unavailable</span>`
-                    }
-                </div>
-            </div>
-        `).join('') : '<p>No products available.</p>';
-
-        document.querySelectorAll('.add-cart').forEach(button => {
-            button.removeEventListener('click', handleAddToCart);
-            button.addEventListener('click', handleAddToCart);
-        });
+        // Get first 3 products from Firebase
+        database.ref('products').limitToFirst(3).once('value')
+            .then((snapshot) => {
+                const productsObj = snapshot.val() || {};
+                
+                if (!productsObj || Object.keys(productsObj).length === 0) {
+                    featuredContent.innerHTML = '<p>No featured products available.</p>';
+                    return;
+                }
+                
+                const products = Object.values(productsObj);
+                const productKeys = Object.keys(productsObj);
+                
+                let featuredHTML = '';
+                products.forEach((p, index) => {
+                    const key = productKeys[index];
+                    featuredHTML += `
+                        <div class="product-box ${p.inStock === false ? 'out-of-stock' : ''}">
+                            <div class="img-box">
+                                <img src="${p.image}" alt="${p.title}">
+                            </div>
+                            <h2 class="product-title">${p.title}</h2>
+                            <div class="rating">
+                                ${Array(5).fill('<i class="fa fa-star"></i>').join('')}
+                            </div>
+                            <p>${getCategoryText(p.category)}</p>
+                            <p class="stock-status ${p.inStock === false ? 'out-of-stock' : 'in-stock'}">
+                                ${p.inStock === false ? 'Out of Stock' : 'In Stock'}
+                            </p>
+                            <div class="price-and-cart">
+                                <span class="price">R${p.price}</span>
+                                ${p.inStock !== false 
+                                    ? `<i class="fas fa-shopping-bag add-cart" data-title="${p.title}" data-key="${key}"></i>`
+                                    : `<span class="out-of-stock-label">Unavailable</span>`
+                                }
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                featuredContent.innerHTML = featuredHTML;
+                
+                // Add event listeners to the add-cart buttons
+                document.querySelectorAll('.add-cart').forEach(button => {
+                    button.removeEventListener('click', handleAddToCart);
+                    button.addEventListener('click', handleAddToCart);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading featured products:', error);
+                featuredContent.innerHTML = '<p>Error loading featured products. Please try again later.</p>';
+            });
     }
 
     // Initialize page
