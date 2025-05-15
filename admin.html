@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teien Tamashii Admin</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Lora:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">
+            <img src="Fotos/Logo.jpeg" alt="Teien Tamashii Logo">
+            <h1>Teien Tamashii Admin</h1>
+        </div>
+        <ul class="nav-links">
+            <li><a href="index.html">Back to Main</a></li>
+            <li><a href="#" id="logout-link">Logout</a></li>
+        </ul>
+        <div class="burger">
+            <i class="fas fa-bars"></i>
+        </div>
+    </nav>
+
+    <section class="admin-panel">
+        <h2>Admin Dashboard</h2>
+        <div class="admin-content">
+            <h3>Add New Product</h3>
+            <form id="product-form">
+                <input type="text" id="product-title" placeholder="Product Title" required>
+                <input type="number" id="product-price" placeholder="Price (R)" step="0.01" required>
+                <select id="product-category" required>
+                    <option value="">Select Categories</option>
+                    <option value="beginner,indoor">Beginner - Indoor</option>
+                    <option value="beginner,outdoor">Beginner - Outdoor</option>
+                    <option value="intermediate,indoor">Intermediate - Indoor</option>
+                    <option value="intermediate,outdoor">Intermediate - Outdoor</option>
+                    <option value="advanced,indoor">Advanced - Indoor</option>
+                    <option value="advanced,outdoor">Advanced - Outdoor</option>
+                </select>
+                <select id="product-stock" required>
+                    <option value="true">In Stock</option>
+                    <option value="false">Out of Stock</option>
+                </select>
+                <label for="product-image" class="file-label">
+                    <span>Upload Image</span>
+                    <input type="file" id="product-image" accept="image/*" required>
+                </label>
+                <button type="submit" class="cta-btn">Add Product</button>
+            </form>
+            <h3>Product List</h3>
+            <div id="product-list"></div>
+        </div>
+    </section>
+
+    <!-- Edit Modal -->
+    <div class="edit-modal" id="edit-modal">
+        <div class="modal-content">
+            <h3>Edit Product</h3>
+            <form id="edit-form">
+                <input type="hidden" id="edit-product-index">
+                <input type="text" id="edit-product-title" placeholder="Product Title" required>
+                <input type="number" id="edit-product-price" placeholder="Price (R)" step="0.01" required>
+                <select id="edit-product-category" required>
+                    <option value="">Select Categories</option>
+                    <option value="beginner,indoor">Beginner - Indoor</option>
+                    <option value="beginner,outdoor">Beginner - Outdoor</option>
+                    <option value="intermediate,indoor">Intermediate - Indoor</option>
+                    <option value="intermediate,outdoor">Intermediate - Outdoor</option>
+                    <option value="advanced,indoor">Advanced - Indoor</option>
+                    <option value="advanced,outdoor">Advanced - Outdoor</option>
+                </select>
+                <select id="edit-product-stock" required>
+                    <option value="true">In Stock</option>
+                    <option value="false">Out of Stock</option>
+                </select>
+                <label for="edit-product-image" class="file-label">
+                    <span>Change Image (optional)</span>
+                    <input type="file" id="edit-product-image" accept="image/*">
+                </label>
+                <img id="edit-image-preview" src="" alt="Current Image" style="width: 200px; margin: 10px auto;">
+                <button type="submit" class="cta-btn">Save Changes</button>
+                <button type="button" class="cancel-btn" onclick="closeEditModal()">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2025 Teien Tamashii. All Rights Reserved.</p>
+    </footer>
+
+    <script src="admin.js"></script>
+</body>
+</html>
