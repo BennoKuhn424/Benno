@@ -43,46 +43,49 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function loadProducts() {
-        console.log('Loading admin products from Firebase');
+        console.log('Loading admin products from Firestore');
         
         // Clear the product list first
         productList.innerHTML = '<p>Loading products...</p>';
         
-        // Get products from Firebase
-        database.ref('products').on('value', (snapshot) => {
-            const productsObj = snapshot.val() || {};
-            
-            if (!productsObj || Object.keys(productsObj).length === 0) {
-                productList.innerHTML = '<p>No products added yet.</p>';
-                return;
-            }
-            
-            // Convert object to array with keys
-            let productsHTML = '';
-            Object.entries(productsObj).forEach(([key, p]) => {
-                productsHTML += `
-                    <div class="product-box ${p.inStock === false ? 'out-of-stock' : ''}">
-                        <img src="${p.image}" alt="${p.title}">
-                        <h3>${p.title}</h3>
-                        <p class="product-price">R${p.price}</p>
-                        <p class="product-category">${getCategoryText(p.category)}</p>
-                        <p class="stock-status ${p.inStock === false ? 'out-of-stock' : 'in-stock'}">
-                            ${p.inStock === false ? 'Out of Stock' : 'In Stock'}
-                        </p>
-                        <div class="admin-actions">
-                            <button class="edit-product" onclick="openEditModal('${key}')">
-                                <i class="fas fa-edit"></i> Edit
-                            </button>
-                            <button class="delete-product" onclick="deleteProduct('${key}')">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
+        // Get products from Firestore
+        db.collection('products').get()
+            .then((snapshot) => {
+                if (snapshot.empty) {
+                    productList.innerHTML = '<p>No products added yet.</p>';
+                    return;
+                }
+                
+                let productsHTML = '';
+                snapshot.forEach(doc => {
+                    const p = doc.data();
+                    productsHTML += `
+                        <div class="product-box ${p.inStock === false ? 'out-of-stock' : ''}">
+                            <img src="${p.image}" alt="${p.title}">
+                            <h3>${p.title}</h3>
+                            <p class="product-price">R${p.price}</p>
+                            <p class="product-category">${getCategoryText(p.category)}</p>
+                            <p class="stock-status ${p.inStock === false ? 'out-of-stock' : 'in-stock'}">
+                                ${p.inStock === false ? 'Out of Stock' : 'In Stock'}
+                            </p>
+                            <div class="admin-actions">
+                                <button class="edit-product" onclick="openEditModal('${doc.id}')">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button class="delete-product" onclick="deleteProduct('${doc.id}')">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                });
+                
+                productList.innerHTML = productsHTML;
+            })
+            .catch(error => {
+                console.error('Error getting products:', error);
+                productList.innerHTML = '<p>Error loading products. Please try again.</p>';
             });
-            
-            productList.innerHTML = productsHTML;
-        });
     }
 
     function getCategoryText(category) {
@@ -103,23 +106,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Make functions global for onclick handlers
-    window.openEditModal = function(key) {
-        database.ref('products/' + key).once('value')
-            .then((snapshot) => {
-                const product = snapshot.val();
-                
-                if (!product) {
+    window.openEditModal = function(docId) {
+        db.collection('products').doc(docId).get()
+            .then((doc) => {
+                if (!doc.exists) {
                     alert('Product not found.');
                     return;
                 }
 
+                const product = doc.data();
                 console.log('Opening edit modal for product:', product.title);
 
                 // Show modal
                 editModal.classList.add('active');
                 
                 // Fill form with current values
-                document.querySelector('#edit-product-index').value = key;
+                document.querySelector('#edit-product-index').value = docId;
                 document.querySelector('#edit-product-title').value = product.title;
                 document.querySelector('#edit-product-price').value = product.price;
                 document.querySelector('#edit-product-category').value = product.category || '';
@@ -136,11 +138,11 @@ document.addEventListener('DOMContentLoaded', () => {
         editModal.classList.remove('active');
     }
 
-    window.deleteProduct = function(key) {
+    window.deleteProduct = function(docId) {
         if (confirm('Are you sure you want to delete this product?')) {
-            console.log('Delete product clicked:', key);
+            console.log('Delete product clicked:', docId);
             
-            database.ref('products/' + key).remove()
+            db.collection('products').doc(docId).delete()
                 .then(() => {
                     alert('Product deleted successfully!');
                 })
@@ -161,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
     editForm.addEventListener('submit', e => {
         e.preventDefault();
         
-        const key = document.querySelector('#edit-product-index').value;
+        const docId = document.querySelector('#edit-product-index').value;
         
         // Create updated product object
         const updatedProduct = {
@@ -180,8 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = () => {
                 updatedProduct.image = reader.result;
                 
-                // Update product in Firebase
-                database.ref('products/' + key).update(updatedProduct)
+                // Update product in Firestore
+                db.collection('products').doc(docId).update(updatedProduct)
                     .then(() => {
                         closeEditModal();
                         alert('Product updated successfully!');
@@ -194,15 +196,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             reader.readAsDataURL(file);
         } else {
-            // Save without changing image (preserve existing image)
-            database.ref('products/' + key).once('value')
-                .then((snapshot) => {
-                    const existingProduct = snapshot.val();
-                    updatedProduct.image = existingProduct.image;
-                    
-                    // Update product in Firebase
-                    return database.ref('products/' + key).update(updatedProduct);
-                })
+            // Don't update the image field if no new image was uploaded
+            db.collection('products').doc(docId).update(updatedProduct)
                 .then(() => {
                     closeEditModal();
                     alert('Product updated successfully!');
@@ -252,9 +247,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Check if product with same title exists
-        database.ref('products').orderByChild('title').equalTo(title).once('value')
+        db.collection('products').where('title', '==', title).get()
             .then((snapshot) => {
-                if (snapshot.exists()) {
+                if (!snapshot.empty) {
                     alert('Product with this title already exists.');
                     return Promise.reject('Duplicate title');
                 }
@@ -268,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             })
             .then((imageBase64) => {
-                // Create new product in Firebase
+                // Create new product in Firestore
                 const newProduct = { 
                     title, 
                     price, 
@@ -277,8 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     inStock 
                 };
                 
-                // Push to generate a unique key
-                return database.ref('products').push(newProduct);
+                return db.collection('products').add(newProduct);
             })
             .then(() => {
                 productForm.reset();
@@ -295,6 +289,39 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     });
 
+    // Add sample products if none exist (only run once)
+    function addSampleProductsIfNeeded() {
+        db.collection('products').get().then((snapshot) => {
+            if (snapshot.empty) {
+                console.log('Adding sample products');
+                
+                const sampleProducts = [
+                    { title: 'Juniper Bonsai', price: 250, image: 'Fotos/Juniper-Bonsai.jpg', category: 'beginner,outdoor', inStock: true },
+                    { title: 'Maple Bonsai', price: 450, image: 'Fotos/Maple-Bonsai.jpg', category: 'intermediate,outdoor', inStock: true },
+                    { title: 'Ficus Bonsai', price: 350, image: 'Fotos/Ficus-Bonsai.jpg', category: 'beginner,indoor', inStock: true },
+                    { title: 'Pine Bonsai', price: 550, image: 'Fotos/Pine-Bonsai.jpg', category: 'advanced,outdoor', inStock: false },
+                    { title: 'Jade Bonsai', price: 300, image: 'Fotos/Jade-Bonsai.webp', category: 'beginner,indoor', inStock: true },
+                    { title: 'Cedar Bonsai', price: 500, image: 'Fotos/Cedar-Bonsai.webp', category: 'intermediate,outdoor', inStock: true }
+                ];
+                
+                // Use a batch to add all sample products at once
+                const batch = db.batch();
+                
+                sampleProducts.forEach((product) => {
+                    const docRef = db.collection('products').doc();
+                    batch.set(docRef, product);
+                });
+                
+                return batch.commit();
+            }
+        }).catch(error => {
+            console.error('Error checking for sample products:', error);
+        });
+    }
+
     // Load products when the page loads
     loadProducts();
+    
+    // Check for sample products
+    addSampleProductsIfNeeded();
 });
