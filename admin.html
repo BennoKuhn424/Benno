@@ -92,29 +92,29 @@
 
     <script src="admin.js"></script>
     
-
-    <!-- Firebase SDK -->
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
 <!-- Initialize Firebase -->
 <script>
   const firebaseConfig = {
-    // Paste your Firebase configuration here (from Step 3)
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyCjA2u__EfEtTbWCISNFq-YtdH4iAmpZ6w",
+    authDomain: "teien-tamashii.firebaseapp.com",
+    projectId: "teien-tamashii",
+    storageBucket: "teien-tamashii.firebasestorage.app",
+    messagingSenderId: "754182439532",
+    appId: "1:754182439532:web:e478ed437e224a91be4e49",
+    measurementId: "G-0SXMM7NMLD"
   };
   
   // Initialize Firebase
   firebase.initializeApp(firebaseConfig);
-  const database = firebase.database();
+  const db = firebase.firestore();
 </script>
 
+<!-- Replace the original admin.js with the Firebase version -->
+<script src="admin-firebase.js"></script>
 
 </body>
 </html>
