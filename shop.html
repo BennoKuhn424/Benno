@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop - Teien Tamashii</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Lora:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="navbar">
+    <div class="logo">
+        <img src="Fotos/Logo.jpeg" alt="Teien Tamashii Logo">
+        <h1>Teien Tamashii</h1>
+    </div>
+    <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="index.html#care">Care Tips</a></li>
+        <li><a href="index.html#types">Bonsai Types</a></li>
+        <li><a href="shop.html" class="active">Shop</a></li>
+        <li><a href="index.html#contact">Contact</a></li>
+        <li id="admin-link" style="display: none;"><a href="admin.html" id="admin-page-link">Go to Admin</a></li>
+        <li id="auth-link"><a href="#login" id="login-link">Login</a></li>
+    </ul>
+    <div class="cart-icon" id="cart-icon">
+        <i class="fas fa-shopping-cart"></i>
+        <span class="cart-item-count"></span>
+    </div>
+    <div class="burger">
+        <i class="fas fa-bars"></i>
+    </div>
+</nav>
+
+<!-- Shop Header -->
+<div class="shop-page">
+    <div class="shop-header">
+        <h1>Our Bonsai Collection</h1>
+        <p>庭園魂 - Explore our curated selection of bonsai masterpieces</p>
+    </div>
+
+    <!-- Filters -->
+    <div class="shop-filters">
+        <div class="filter-buttons">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="beginner">Beginner</button>
+            <button class="filter-btn" data-filter="intermediate">Intermediate</button>
+            <button class="filter-btn" data-filter="advanced">Advanced</button>
+            <button class="filter-btn" data-filter="indoor">Indoor</button>
+            <button class="filter-btn" data-filter="outdoor">Outdoor</button>
+        </div>
+    </div>
+
+    <!-- Products Grid -->
+    <div class="shop-content">
+        <div class="product-grid" id="product-content"></div>
+    </div>
+</div>
+
+<!-- Cart -->
+<div class="cart">
+    <h2 class="cart-title">Your Cart</h2>
+    <div class="cart-content"></div>
+    <div class="total">
+        <div class="total-title">Total</div>
+        <div class="total-price">R0</div>
+    </div>
+    <button class="btn-buy">Buy Now</button>
+    <i class="fas fa-times" id="cart-close"></i>
+</div>
+
+<!-- Login/Register Modal -->
+<div class="auth-modal" id="auth-modal">
+    <div class="auth-content">
+        <h2 id="auth-title">Login</h2>
+        <form id="auth-form">
+            <input type="email" id="email" placeholder="Email" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <input type="text" id="username" placeholder="Username" style="display: none;">
+            <button type="submit" class="cta-btn" id="auth-submit">Login</button>
+            <p id="auth-toggle">Don't have an account? <a href="#" id="toggle-link">Register</a></p>
+        </form>
+        <i class="fas fa-times" id="auth-close"></i>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer>
+    <p>© 2025 Teien Tamashii. All Rights Reserved.</p>
+    <div class="social-links">
+        <a href="#"><i class="fab fa-facebook"></i></a>
+        <a href="#"><i class="fab fa-twitter"></i></a>
+        <a href="#"><i class="fab fa-instagram"></i></a>
+        <a href="#"><i class="fab fa-youtube"></i></a>
+    </div>
+</footer>
+
+<script src="scripts.js"></script>
+</body>
+</html>
