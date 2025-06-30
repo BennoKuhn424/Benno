@@ -1,0 +1,32 @@
+# Enable rewrite engine
+RewriteEngine On
+
+# Handle success.html routing
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^success\.html$ /success.html [L]
+
+# Fallback for PayFast returns
+RewriteCond %{QUERY_STRING} ^.*order=.*$
+RewriteRule ^success$ /success.html [L,QSA]
+
+# Alternative fallback to shop.html with success parameters
+RewriteCond %{REQUEST_URI} ^/success.html$
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^(.*)$ /shop.html?payfast_success=true [L,QSA,R=302]
+
+# Security headers
+Header always set X-Content-Type-Options nosniff
+Header always set X-Frame-Options DENY
+Header always set X-XSS-Protection "1; mode=block"
+
+# Cache control for static files
+<FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg)$">
+    ExpiresActive On
+    ExpiresDefault "access plus 1 month"
+</FilesMatch>
+
+# Ensure HTML files are served correctly
+<FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+</FilesMatch>

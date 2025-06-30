@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Courses - Teien Tamashii</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Lora:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- CSS imports matching index structure -->
+    <link rel="stylesheet" href="base.css">
+    <link rel="stylesheet" href="navbar.css">
+    <link rel="stylesheet" href="shop.css">
+    <link rel="stylesheet" href="auth.css">
+    <link rel="stylesheet" href="cart.css">
+    <link rel="stylesheet" href="products.css">
+    
+    <style>
+        /* Additional course-specific modal styles */
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .course-modal-appear {
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        /* Course card interaction indicators */
+        .course-interaction-hint {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(46, 125, 50, 0.9);
+            color: white;
+            padding: 0.3rem 0.6rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 3;
+        }
+        
+        .course-card-clickable:hover .course-interaction-hint {
+            opacity: 1;
+        }
+        
+        /* Focus states for accessibility */
+        .course-card-clickable:focus {
+            outline: 3px solid rgba(46, 125, 50, 0.5);
+            outline-offset: 2px;
+        }
+        
+        .course-modal-close:focus {
+            outline: 3px solid rgba(255, 255, 255, 0.7);
+            outline-offset: 2px;
+        }
+        
+        .whatsapp-button:focus {
+            outline: 3px solid rgba(37, 211, 102, 0.5);
+            outline-offset: 2px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="navbar">
+    <div class="logo">
+        <img src="Fotos/Logo.jpeg" alt="Teien Tamashii Logo">
+        <h1>Teien Tamashii</h1>
+    </div>
+    <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="care-tips.html">Care Tips</a></li>
+        <li><a href="courses.html" class="active">Courses</a></li>
+        <li><a href="index.html#types">Bonsai Types</a></li>
+        <li><a href="shop.html">Shop</a></li>
+        <li><a href="index.html#contact">Contact</a></li>
+        <li id="admin-link" style="display: none;"><a href="admin.html" id="admin-page-link">Go to Admin</a></li>
+        <li id="auth-link"><a href="#login" id="login-link">Login</a></li>
+    </ul>
+    <div class="cart-icon" id="cart-icon">
+        <i class="fas fa-shopping-cart"></i>
+        <span class="cart-item-count"></span>
+    </div>
+    <div class="burger">
+        <i class="fas fa-bars"></i>
+    </div>
+</nav>
+
+<!-- Courses Header -->
+<div class="care-tips-page">
+    <div class="care-tips-header">
+        <h1>Bonsai Courses</h1>
+        <p>庭園魂 - Master the art of bonsai with our comprehensive courses</p>
+        <div style="margin-top: 2rem; padding: 1rem; background: rgba(255, 255, 255, 0.1); border-radius: 10px; backdrop-filter: blur(10px);">
+            <p style="margin: 0; font-size: 1rem; opacity: 0.9;">
+                <i class="fas fa-mouse-pointer" style="margin-right: 0.5rem;"></i>
+                Click on any course below to see detailed information and book via WhatsApp
+            </p>
+        </div>
+    </div>
+
+    <!-- Courses Grid -->
+    <div class="care-tips-content">
+        <div class="tips-grid" id="courses-content">
+            <!-- Courses will be loaded here -->
+            <p>Loading courses...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Cart -->
+<div class="cart">
+    <h2 class="cart-title">Your Cart</h2>
+    <div class="cart-content"></div>
+    <div class="total">
+        <div class="total-title">Total</div>
+        <div class="total-price">R0</div>
+    </div>
+    
+    <!-- PayFast Payment Security Info -->
+    <div class="payment-security">
+        <div class="security-badge">
+            <i class="fas fa-shield-alt"></i>
+            <span>Secure Payment by PayFast</span>
+        </div>
+        <div style="color: #666; font-size: 0.8rem;">
+            Your payment information is encrypted and secure
+        </div>
+        <div class="payment-methods">
+            <span class="payment-method">💳 Credit Card</span>
+            <span class="payment-method">🏦 EFT</span>
+            <span class="payment-method">⚡ Instant EFT</span>
+            <span class="payment-method">📱 SnapScan</span>
+        </div>
+    </div>
+    
+    <button class="btn-buy">
+        <i class="fas fa-lock"></i> Secure Checkout with PayFast
+    </button>
+    <i class="fas fa-times" id="cart-close"></i>
+</div>
+
+<!-- Login/Register Modal -->
+<div class="auth-modal" id="auth-modal">
+    <div class="auth-content">
+        <h2 id="auth-title">Login</h2>
+        <form id="auth-form">
+            <input type="email" id="email" placeholder="Email" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <input type="text" id="username" placeholder="Username" style="display: none;">
+            <button type="submit" class="cta-btn" id="auth-submit">Login</button>
+            <p id="auth-toggle">Don't have an account? <a href="#" id="toggle-link">Register</a></p>
+        </form>
+        <i class="fas fa-times" id="auth-close"></i>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer>
+    <p>© 2025 Teien Tamashii. All Rights Reserved.</p>
+    <div class="social-links">
+        <a href="#"><i class="fab fa-facebook"></i></a>
+        <a href="#"><i class="fab fa-twitter"></i></a>
+        <a href="#"><i class="fab fa-instagram"></i></a>
+        <a href="#"><i class="fab fa-youtube"></i></a>
+    </div>
+</footer>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+<!-- Initialize Firebase -->
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCjA2u__EfEtTbWCISNFq-YtdH4iAmpZ6w",
+    authDomain: "teien-tamashii.firebaseapp.com",
+    projectId: "teien-tamashii",
+    storageBucket: "teien-tamashii.firebasestorage.app",
+    messagingSenderId: "754182439532",
+    appId: "1:754182439532:web:e478ed437e224a91be4e49",
+    measurementId: "G-0SXMM7NMLD"
+  };
+  
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+</script>
+
+<!-- Use the updated Firebase JavaScript file with course modals -->
+<script src="scripts-firebase.js"></script>
+
+<!-- Additional script for keyboard accessibility -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Add keyboard support for course modals
+    document.addEventListener('keydown', (e) => {
+        // Close modal on Escape key
+        if (e.key === 'Escape') {
+            const courseModal = document.getElementById('course-detail-modal');
+            if (courseModal) {
+                closeCourseModal();
+            }
+        }
+        
+        // Navigate course cards with arrow keys
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            const courseCards = document.querySelectorAll('.course-card-clickable');
+            const activeElement = document.activeElement;
+            const currentIndex = Array.from(courseCards).indexOf(activeElement);
+            
+            if (currentIndex >= 0) {
+                e.preventDefault();
+                let nextIndex;
+                
+                if (e.key === 'ArrowRight') {
+                    nextIndex = (currentIndex + 1) % courseCards.length;
+                } else {
+                    nextIndex = (currentIndex - 1 + courseCards.length) % courseCards.length;
+                }
+                
+                courseCards[nextIndex].focus();
+            }
+        }
+        
+        // Open course modal with Enter or Space
+        if (e.key === 'Enter' || e.key === ' ') {
+            if (e.target.classList.contains('course-card-clickable')) {
+                e.preventDefault();
+                e.target.click();
+            }
+        }
+    });
+    
+    // Add focus indicators and tabindex to course cards
+    setTimeout(() => {
+        const courseCards = document.querySelectorAll('.course-card-clickable');
+        courseCards.forEach((card, index) => {
+            card.setAttribute('tabindex', '0');
+            card.setAttribute('role', 'button');
+            card.setAttribute('aria-label', `View details for ${card.querySelector('h3')?.textContent || 'course'}`);
+            
+            // Add interaction hint
+            const hint = document.createElement('div');
+            hint.className = 'course-interaction-hint';
+            hint.innerHTML = '<i class="fas fa-click"></i> Click';
+            card.style.position = 'relative';
+            card.appendChild(hint);
+        });
+    }, 1000);
+});
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
+
+</body>
+</html>

@@ -6,7 +6,460 @@
     <title>Teien Tamashii Admin</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Lora:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    
+    <!-- FIXED: Updated CSS imports to use navbar.css instead of navigation.css -->
+    <link rel="stylesheet" href="base.css">
+    <link rel="stylesheet" href="navbar.css">
+    <link rel="stylesheet" href="auth.css">
+    <link rel="stylesheet" href="admin.css">
+    
+    <style>
+        /* Weight field styling */
+        .weight-input-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .weight-input-group input {
+            flex: 1;
+        }
+        
+        .weight-unit {
+            background: var(--green-primary);
+            color: white;
+            padding: 0.8rem;
+            border-radius: 5px;
+            font-weight: 600;
+            border: none;
+            min-width: 60px;
+            text-align: center;
+        }
+        
+        .field-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .field-group {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Weight display in product cards */
+        .variant-weight {
+            background: #ff9800;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 1rem;
+            text-align: center;
+            box-shadow: 0 3px 8px rgba(255, 152, 0, 0.3);
+            min-width: 80px;
+        }
+        
+        /* Updated variant grid to include weight */
+        .variant-item {
+            display: grid;
+            grid-template-columns: 120px 100px 120px 1fr auto;
+            align-items: center;
+            padding: 1.2rem 2rem;
+            border-bottom: 1px solid #e9ecef;
+            gap: 1.5rem;
+            transition: background 0.3s ease;
+            min-height: 70px;
+        }
+        
+        /* Orders Management Styles */
+        .orders-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #fff, #f8f9fa);
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        } 
+
+        
+        
+        .stat-card:hover {
+            border-color: var(--green-primary);
+            transform: translateY(-2px);
+        }
+        
+        .stat-card.revenue {
+            border-left: 4px solid #4caf50;
+        }
+        
+        .stat-card.orders {
+            border-left: 4px solid #2196f3;
+        }
+        
+        .stat-card.pending {
+            border-left: 4px solid #ff9800;
+        }
+        
+        .stat-card.completed {
+            border-left: 4px solid #8bc34a;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--green-primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .orders-filters {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .filters-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            align-items: end;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .filter-group label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+        }
+        
+        .orders-table-container {
+    overflow-x: auto !important;  /* Added !important to override any other CSS */
+    width: 100%;
+    max-width: 100%;
+}  
+        
+        .orders-table {
+    min-width: 1000px !important;  /* Increased from 800px to 1000px */
+    table-layout: fixed;            /* Better column control */
+}
+        
+        .orders-table th {
+            background: linear-gradient(135deg, var(--green-primary), var(--green-secondary));
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .orders-table th:last-child,
+.orders-table td:last-child {
+    width: 120px;      /* Fixed width for Actions column */
+    min-width: 120px;  /* Prevents compression */
+    white-space: nowrap;
+}
+        
+        .orders-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+            vertical-align: top;
+        }
+        
+        .orders-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .order-id {
+            font-family: monospace;
+            background: #f5f5f5;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .order-status {
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        .status-completed {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .order-amount {
+            font-weight: 700;
+            color: var(--green-primary);
+            font-size: 1.1rem;
+        }
+        
+        .order-items {
+            max-width: 200px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .order-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            min-width: 120px;
+        }
+        
+        .action-btn {
+            padding: 0.6rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.3rem;
+            min-height: 36px;
+        }
+        
+        .view-btn {
+            background: linear-gradient(135deg, #2196f3, #1976d2);
+            color: white;
+            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+        }
+        
+        .view-btn:hover {
+            background: linear-gradient(135deg, #1976d2, #1565c0);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+        }
+        
+        .update-btn {
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+            color: white;
+            box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+        }
+        
+        .update-btn:hover {
+            background: linear-gradient(135deg, #f57c00, #ef6c00);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--green-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        /* Order Detail Modal */
+        .order-detail-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1500;
+            padding: 2rem;
+        }
+        
+        .order-detail-modal.active {
+            display: flex;
+        }
+        
+        .order-detail-content {
+            background: white;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        
+        .order-detail-header {
+            background: linear-gradient(135deg, var(--green-primary), var(--green-secondary));
+            color: white;
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .order-detail-header h3 {
+            margin: 0;
+            font-size: 1.3rem;
+        }
+        
+        .close-detail-modal {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: all 0.3s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .close-detail-modal:hover {
+            background: rgba(255,255,255,0.2);
+            transform: rotate(90deg);
+        }
+        
+        .order-detail-body {
+            padding: 2rem;
+        }
+        
+        .detail-section {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .detail-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .detail-section h4 {
+            color: var(--green-primary);
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+        
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+        }
+        
+        .detail-value {
+            color: #666;
+            font-size: 0.95rem;
+        }
+        
+        /* Export Toolbar */
+        .export-toolbar {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .orders-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .filters-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .orders-table-container {
+                overflow-x: auto;
+            }
+            
+            .orders-table {
+                min-width: 600px;
+            }
+            
+            .order-detail-modal {
+                padding: 1rem;
+            }
+            
+            .detail-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .variant-item {
+                grid-template-columns: 1fr;
+                text-align: center;
+                gap: 0.8rem;
+            }
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar">
@@ -25,63 +478,309 @@
 
     <section class="admin-panel">
         <h2>Admin Dashboard</h2>
-        <div class="admin-content">
+        
+        <!-- Admin Tab Navigation - UPDATED TO INCLUDE ORDERS TAB -->
+        <div class="admin-tabs">
+            <button class="tab-btn active" data-tab="products">Manage Products</button>
+            <button class="tab-btn" data-tab="courses">Manage Courses</button>
+            <button class="tab-btn" data-tab="orders">Manage Orders</button>
+        </div>
+        
+        <!-- Products Tab Content - UPDATED FOR AGE + WEIGHT SYSTEM -->
+        <div class="admin-content tab-content active" id="products-tab">
             <h3>Add New Product</h3>
             <form id="product-form">
-                <input type="text" id="product-title" placeholder="Product Title" required>
+                <input type="text" id="product-title" placeholder="Product Title (e.g., Juniper Bonsai)" required>
+                
+                <!-- Age and Weight Fields Side by Side -->
+                <div class="field-group">
+                    <div>
+                        <label for="product-age" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #333;">Age (years)</label>
+                        <input type="number" id="product-age" placeholder="Age in years" step="0.5" min="0.5" max="100" required>
+                    </div>
+                    <div>
+                        <label for="product-weight" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #333;">Weight</label>
+                        <div class="weight-input-group">
+                            <input type="number" id="product-weight" placeholder="Weight" step="0.1" min="0.1" max="50" required>
+                            <select id="weight-unit" class="weight-unit">
+                                <option value="kg">kg</option>
+                                <option value="g">g</option>
+                                <option value="lbs">lbs</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
                 <input type="number" id="product-price" placeholder="Price (R)" step="0.01" required>
                 <select id="product-category" required>
-                    <option value="">Select Categories</option>
-                    <option value="beginner,indoor">Beginner - Indoor</option>
-                    <option value="beginner,outdoor">Beginner - Outdoor</option>
-                    <option value="intermediate,indoor">Intermediate - Indoor</option>
-                    <option value="intermediate,outdoor">Intermediate - Outdoor</option>
-                    <option value="advanced,indoor">Advanced - Indoor</option>
-                    <option value="advanced,outdoor">Advanced - Outdoor</option>
+                    <option value="">Select Category</option>
+                    <option value="prebonsai">Pre-Bonsai</option>
+                    <option value="seedlings">Seedlings</option>
+                    <option value="silver-bonsai">Silver Bonsai</option>
+                    <option value="gold-bonsai">Gold Bonsai</option>
+                    <option value="platinum-bonsai">Platinum Bonsai</option>
+                    <option value="imported-bonsai">Imported Bonsai</option>
+                    <option value="bonsai-pots">Bonsai Pots</option>
+                    <option value="bonsai-tools">Bonsai Tools</option>
+                    <option value="bonsai-wire">Bonsai Wire</option>
+                    <option value="bonsai-accessories">Bonsai Accessories</option>
+                    <option value="orchids">Orchids</option>
+                    <option value="airplants">Air Plants</option>
+                    <option value="terrariums">Terrariums</option>
+                    <option value="aquariums">Aquariums</option>
+                    <option value="aqua-scapes">Aqua Scapes</option>
+                    <option value="rocks">Rocks</option>
+                    <option value="driftwood">Driftwood</option>
+                    <option value="pebbles">Pebbles</option>
+                    <option value="mosses">Mosses</option>
+                    <option value="pot-dressings">Pot Dressings</option>
                 </select>
-                <select id="product-stock" required>
-                    <option value="true">In Stock</option>
-                    <option value="false">Out of Stock</option>
-                </select>
+                <input type="number" id="product-quantity" placeholder="Quantity in Stock" min="0" required>
                 <label for="product-image" class="file-label">
                     <span>Upload Image</span>
                     <input type="file" id="product-image" accept="image/*" required>
                 </label>
-                <button type="submit" class="cta-btn">Add Product</button>
+                <button type="submit" class="cta-btn">Add Product Variant</button>
             </form>
-            <h3>Product List</h3>
+            <h3>Product List (Grouped by Type)</h3>
             <div id="product-list"></div>
+        </div>
+        
+        <!-- Courses Tab Content -->
+        <div class="admin-content tab-content" id="courses-tab">
+            <h3>Add New Course</h3>
+            <form id="course-form">
+                <input type="text" id="course-title" placeholder="Course Title" required>
+                <textarea id="course-description" placeholder="Course Description" rows="4" required></textarea>
+                <input type="number" id="course-price" placeholder="Price (R)" step="0.01" required>
+                <input type="number" id="course-duration" placeholder="Duration (hours)" step="0.5" required>
+                <select id="course-level" required>
+                    <option value="">Select Level</option>
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                </select>
+                <select id="course-category" required>
+                    <option value="">Select Category</option>
+                    <option value="basics">Basics & Fundamentals</option>
+                    <option value="styling">Styling & Design</option>
+                    <option value="advanced-techniques">Advanced Techniques</option>
+                    <option value="species-specific">Species Specific</option>
+                    <option value="seasonal-care">Seasonal Care</option>
+                    <option value="tools-equipment">Tools & Equipment</option>
+                </select>
+                <label for="course-image" class="file-label">
+                    <span>Upload Course Image</span>
+                    <input type="file" id="course-image" accept="image/*" required>
+                </label>
+                <button type="submit" class="cta-btn">Add Course</button>
+            </form>
+            <h3>Courses List</h3>
+            <div id="courses-list"></div>
+        </div>
+        
+        <!-- NEW: Orders Tab Content -->
+        <div class="admin-content tab-content" id="orders-tab">
+            <h3>Orders Management</h3>
+            
+            <!-- Orders Statistics -->
+            <div class="orders-stats">
+                <div class="stat-card revenue">
+                    <div class="stat-number" id="total-revenue">R0.00</div>
+                    <div class="stat-label">Total Revenue</div>
+                </div>
+                <div class="stat-card orders">
+                    <div class="stat-number" id="total-orders">0</div>
+                    <div class="stat-label">Total Orders</div>
+                </div>
+                <div class="stat-card pending">
+                    <div class="stat-number" id="pending-orders">0</div>
+                    <div class="stat-label">Pending Orders</div>
+                </div>
+                <div class="stat-card completed">
+                    <div class="stat-number" id="completed-orders">0</div>
+                    <div class="stat-label">Completed Orders</div>
+                </div>
+            </div>
+            
+            <!-- Export Toolbar -->
+            <div class="export-toolbar">
+                <button onclick="exportOrdersToCSV()" class="cta-btn" style="background: #2e7d32;">
+                    <i class="fas fa-file-csv"></i> Export CSV
+                </button>
+                <button onclick="generateSalesReport()" class="cta-btn" style="background: #1976d2;">
+                    <i class="fas fa-chart-line"></i> Sales Report
+                </button>
+                <button onclick="loadOrdersData()" class="cta-btn" style="background: #ff9800;">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+            
+            <!-- Orders Filters -->
+            <div class="orders-filters">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label for="status-filter">Status</label>
+                        <select id="status-filter">
+                            <option value="">All Statuses</option>
+                            <option value="completed">Completed</option>
+                            <option value="pending">Pending</option>
+                            <option value="failed">Failed</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="date-from">From Date</label>
+                        <input type="date" id="date-from">
+                    </div>
+                    <div class="filter-group">
+                        <label for="date-to">To Date</label>
+                        <input type="date" id="date-to">
+                    </div>
+                    <div class="filter-group">
+                        <button class="cta-btn" onclick="applyOrderFilters()">
+                            <i class="fas fa-filter"></i> Apply Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Orders Table -->
+            <div class="orders-table-container" id="orders-container">
+    <div class="loading-overlay" id="orders-loading">
+        <div class="loading-spinner"></div>
+    </div>
+    <table class="orders-table">
+        <thead>
+            <tr>
+                <th>Order ID</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Customer</th>
+                <th>Items</th>
+                <th>Delivery & Shipping</th> <!-- New column -->
+                <th>Total Amount</th>
+                <th>Payment ID</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="orders-table-body">
+            <!-- Orders will be loaded here -->
+        </tbody>
+    </table>
+</div>
         </div>
     </section>
 
-    <!-- Edit Modal -->
-    <div class="edit-modal" id="edit-modal">
+    <!-- Order Detail Modal -->
+    <div class="order-detail-modal" id="order-detail-modal">
+        <div class="order-detail-content">
+            <div class="order-detail-header">
+                <h3 id="order-detail-title">Order Details</h3>
+                <button class="close-detail-modal" onclick="closeOrderDetailModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="order-detail-body" id="order-detail-body">
+                <!-- Order details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Product Modal - UPDATED FOR AGE + WEIGHT SYSTEM -->
+    <div class="edit-modal" id="edit-product-modal">
         <div class="modal-content">
-            <h3>Edit Product</h3>
-            <form id="edit-form">
+            <h3>Edit Product Variant</h3>
+            <form id="edit-product-form">
                 <input type="hidden" id="edit-product-index">
                 <input type="text" id="edit-product-title" placeholder="Product Title" required>
+                
+                <!-- Age and Weight Fields Side by Side in Edit Modal -->
+                <div class="field-group">
+                    <div>
+                        <label for="edit-product-age" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #333;">Age (years)</label>
+                        <input type="number" id="edit-product-age" placeholder="Age in years" step="0.5" min="0.5" max="100" required>
+                    </div>
+                    <div>
+                        <label for="edit-product-weight" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #333;">Weight</label>
+                        <div class="weight-input-group">
+                            <input type="number" id="edit-product-weight" placeholder="Weight" step="0.1" min="0.1" max="50" required>
+                            <select id="edit-weight-unit" class="weight-unit">
+                                <option value="kg">kg</option>
+                                <option value="g">g</option>
+                                <option value="lbs">lbs</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
                 <input type="number" id="edit-product-price" placeholder="Price (R)" step="0.01" required>
                 <select id="edit-product-category" required>
-                    <option value="">Select Categories</option>
-                    <option value="beginner,indoor">Beginner - Indoor</option>
-                    <option value="beginner,outdoor">Beginner - Outdoor</option>
-                    <option value="intermediate,indoor">Intermediate - Indoor</option>
-                    <option value="intermediate,outdoor">Intermediate - Outdoor</option>
-                    <option value="advanced,indoor">Advanced - Indoor</option>
-                    <option value="advanced,outdoor">Advanced - Outdoor</option>
+                    <option value="">Select Category</option>
+                    <option value="prebonsai">Pre-Bonsai</option>
+                    <option value="seedlings">Seedlings</option>
+                    <option value="silver-bonsai">Silver Bonsai</option>
+                    <option value="gold-bonsai">Gold Bonsai</option>
+                    <option value="platinum-bonsai">Platinum Bonsai</option>
+                    <option value="imported-bonsai">Imported Bonsai</option>
+                    <option value="bonsai-pots">Bonsai Pots</option>
+                    <option value="bonsai-tools">Bonsai Tools</option>
+                    <option value="bonsai-wire">Bonsai Wire</option>
+                    <option value="bonsai-accessories">Bonsai Accessories</option>
+                    <option value="orchids">Orchids</option>
+                    <option value="airplants">Air Plants</option>
+                    <option value="terrariums">Terrariums</option>
+                    <option value="aquariums">Aquariums</option>
+                    <option value="aqua-scapes">Aqua Scapes</option>
+                    <option value="rocks">Rocks</option>
+                    <option value="driftwood">Driftwood</option>
+                    <option value="pebbles">Pebbles</option>
+                    <option value="mosses">Mosses</option>
+                    <option value="pot-dressings">Pot Dressings</option>
                 </select>
-                <select id="edit-product-stock" required>
-                    <option value="true">In Stock</option>
-                    <option value="false">Out of Stock</option>
-                </select>
+                <input type="number" id="edit-product-quantity" placeholder="Quantity in Stock" min="0" required>
                 <label for="edit-product-image" class="file-label">
                     <span>Change Image (optional)</span>
                     <input type="file" id="edit-product-image" accept="image/*">
                 </label>
-                <img id="edit-image-preview" src="" alt="Current Image" style="width: 200px; margin: 10px auto;">
+                <img id="edit-product-image-preview" src="" alt="Current Image" style="width: 200px; margin: 10px auto;">
                 <button type="submit" class="cta-btn">Save Changes</button>
-                <button type="button" class="cancel-btn" onclick="closeEditModal()">Cancel</button>
+                <button type="button" class="cancel-btn" onclick="closeEditProductModal()">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Course Modal -->
+    <div class="edit-modal" id="edit-course-modal">
+        <div class="modal-content">
+            <h3>Edit Course</h3>
+            <form id="edit-course-form">
+                <input type="hidden" id="edit-course-index">
+                <input type="text" id="edit-course-title" placeholder="Course Title" required>
+                <textarea id="edit-course-description" placeholder="Course Description" rows="4" required></textarea>
+                <input type="number" id="edit-course-price" placeholder="Price (R)" step="0.01" required>
+                <input type="number" id="edit-course-duration" placeholder="Duration (hours)" step="0.5" required>
+                <select id="edit-course-level" required>
+                    <option value="">Select Level</option>
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                </select>
+                <select id="edit-course-category" required>
+                    <option value="">Select Category</option>
+                    <option value="basics">Basics & Fundamentals</option>
+                    <option value="styling">Styling & Design</option>
+                    <option value="advanced-techniques">Advanced Techniques</option>
+                    <option value="species-specific">Species Specific</option>
+                    <option value="seasonal-care">Seasonal Care</option>
+                    <option value="tools-equipment">Tools & Equipment</option>
+                </select>
+                <label for="edit-course-image" class="file-label">
+                    <span>Change Image (optional)</span>
+                    <input type="file" id="edit-course-image" accept="image/*">
+                </label>
+                <img id="edit-course-image-preview" src="" alt="Current Image" style="width: 200px; margin: 10px auto;">
+                <button type="submit" class="cta-btn">Save Changes</button>
+                <button type="button" class="cancel-btn" onclick="closeEditCourseModal()">Cancel</button>
             </form>
         </div>
     </div>
@@ -90,31 +789,28 @@
         <p>© 2025 Teien Tamashii. All Rights Reserved.</p>
     </footer>
 
-    <script src="admin.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <!-- Initialize Firebase -->
+    <script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyCjA2u__EfEtTbWCISNFq-YtdH4iAmpZ6w",
+        authDomain: "teien-tamashii.firebaseapp.com",
+        projectId: "teien-tamashii",
+        storageBucket: "teien-tamashii.firebasestorage.app",
+        messagingSenderId: "754182439532",
+        appId: "1:754182439532:web:e478ed437e224a91be4e49",
+        measurementId: "G-0SXMM7NMLD"
+    };
     
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    </script>
 
-<!-- Initialize Firebase -->
-<script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyCjA2u__EfEtTbWCISNFq-YtdH4iAmpZ6w",
-    authDomain: "teien-tamashii.firebaseapp.com",
-    projectId: "teien-tamashii",
-    storageBucket: "teien-tamashii.firebasestorage.app",
-    messagingSenderId: "754182439532",
-    appId: "1:754182439532:web:e478ed437e224a91be4e49",
-    measurementId: "G-0SXMM7NMLD"
-  };
-  
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-</script>
-
-<!-- Replace the original admin.js with the Firebase version -->
-<script src="admin-firebase.js"></script>
-
+    <!-- Use the updated admin-firebase.js with AGE + WEIGHT SYSTEM -->
+    <script src="admin-firebase.js"></script>
 </body>
 </html>
