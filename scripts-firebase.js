@@ -1510,7 +1510,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p style="margin: 0 0 1.5rem 0; opacity: 0.9; font-size: 1rem;">
                             Chat with us on WhatsApp to book this course or ask any questions!
                         </p>
-                        <a href="https://wa.me/27123456789?text=Hi%20Teien%20Tamashii,%20I'm%20interested%20in%20the%20${encodeURIComponent(course.title)}%20course.%20Can%20you%20provide%20more%20information%20about%20booking%20and%20schedule?" 
+                        <a href="https://wa.me/27824659960?text=Hi%20Teien%20Tamashii,%20I'm%20interested%20in%20the%20${encodeURIComponent(course.title)}%20course.%20Can%20you%20provide%20more%20information%20about%20booking%20and%20schedule?" 
                            target="_blank"
                            style="
                                display: inline-flex;
