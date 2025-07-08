@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('admin-firebase.js loaded with Firebase Auth and AGE + WEIGHT SYSTEM');
+    console.log('admin-firebase.js loaded with Firebase Auth and AGE + WEIGHT SYSTEM + GALLERY MANAGEMENT');
 
     // Check for admin access using Firebase
     const currentUser = JSON.parse(localStorage.getItem('currentUser'));
@@ -84,9 +84,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const tabId = button.getAttribute('data-tab');
             document.getElementById(`${tabId}-tab`).classList.add('active');
             
-            // IMPORTANT: Load orders data when orders tab is clicked
+            // Load data based on tab
             if (tabId === 'orders') {
                 loadOrdersData();
+            } else if (tabId === 'gallery') {
+                loadGalleryItems();
             }
         });
     });
@@ -99,19 +101,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const productImage = document.querySelector('#product-image');
 
     // Image preview for main product form
-    productImage.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                console.log('Image selected:', file.name);
-            };
-            reader.readAsDataURL(file);
-        }
-    });
+    if (productImage) {
+        productImage.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    console.log('Image selected:', file.name);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
 
     function loadProducts() {
         console.log('Loading admin products from Firestore with AGE + WEIGHT SYSTEM');
+        
+        if (!productList) return;
         
         // Clear the product list first
         productList.innerHTML = '<p>Loading products...</p>';
@@ -215,6 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'bonsai-tools': 'Bonsai Tools',
             'bonsai-wire': 'Bonsai Wire',
             'bonsai-accessories': 'Bonsai Accessories',
+            'rare-succulents-cacti': 'Rare Succulents & Cacti',
             'orchids': 'Orchids',
             'airplants': 'Air Plants',
             'terrariums': 'Terrariums',
@@ -242,8 +249,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const validCategories = [
             'prebonsai', 'seedlings', 'silver-bonsai', 'gold-bonsai', 'platinum-bonsai',
             'imported-bonsai', 'bonsai-pots', 'bonsai-tools', 'bonsai-wire', 'bonsai-accessories',
-            'orchids', 'airplants', 'terrariums', 'aquariums', 'aqua-scapes',
-            'rocks', 'driftwood', 'pebbles', 'mosses', 'pot-dressings'
+            'rare-succulents-cacti', 'orchids', 'airplants', 'terrariums', 'aquariums', 
+            'aqua-scapes', 'rocks', 'driftwood', 'pebbles', 'mosses', 'pot-dressings'
         ];
         
         if (category.includes(',')) {
@@ -523,37 +530,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Handle edit product form submission with AGE + WEIGHT
-    editProductForm.addEventListener('submit', e => {
-        e.preventDefault();
-        
-        const docId = document.querySelector('#edit-product-index').value;
-        
-        // Create updated product object
-        const updatedProduct = {
-            title: document.querySelector('#edit-product-title').value,
-            age: parseFloat(document.querySelector('#edit-product-age').value),
-            weight: parseFloat(document.querySelector('#edit-product-weight').value),
-            weightUnit: document.querySelector('#edit-weight-unit').value,
-            price: parseFloat(document.querySelector('#edit-product-price').value),
-            category: document.querySelector('#edit-product-category').value,
-            quantity: parseInt(document.querySelector('#edit-product-quantity').value),
-            updatedAt: new Date().toISOString(),
-            updatedBy: currentUser.id
-        };
-        
-        // Log admin action
-        logAdminAction('edit_product', { productId: docId, updatedFields: Object.keys(updatedProduct) });
-        
-        // Check if new image was uploaded
-        const imageInput = document.querySelector('#edit-product-image');
-        if (imageInput.files.length > 0) {
-            const file = imageInput.files[0];
-            const reader = new FileReader();
+    if (editProductForm) {
+        editProductForm.addEventListener('submit', e => {
+            e.preventDefault();
             
-            reader.onload = () => {
-                updatedProduct.image = reader.result;
+            const docId = document.querySelector('#edit-product-index').value;
+            
+            // Create updated product object
+            const updatedProduct = {
+                title: document.querySelector('#edit-product-title').value,
+                age: parseFloat(document.querySelector('#edit-product-age').value),
+                weight: parseFloat(document.querySelector('#edit-product-weight').value),
+                weightUnit: document.querySelector('#edit-weight-unit').value,
+                price: parseFloat(document.querySelector('#edit-product-price').value),
+                category: document.querySelector('#edit-product-category').value,
+                quantity: parseInt(document.querySelector('#edit-product-quantity').value),
+                updatedAt: new Date().toISOString(),
+                updatedBy: currentUser.id
+            };
+            
+            // Log admin action
+            logAdminAction('edit_product', { productId: docId, updatedFields: Object.keys(updatedProduct) });
+            
+            // Check if new image was uploaded
+            const imageInput = document.querySelector('#edit-product-image');
+            if (imageInput.files.length > 0) {
+                const file = imageInput.files[0];
+                const reader = new FileReader();
                 
-                // Update product in Firestore
+                reader.onload = () => {
+                    updatedProduct.image = reader.result;
+                    
+                    // Update product in Firestore
+                    db.collection('products').doc(docId).update(updatedProduct)
+                        .then(() => {
+                            closeEditProductModal();
+                            showAdminMessage('Product variant updated successfully!', 'success');
+                            loadProducts(); // Reload products list
+                        })
+                        .catch(error => {
+                            console.error('Error updating product:', error);
+                            showAdminMessage('Error updating product. Please try again.', 'error');
+                        });
+                };
+                
+                reader.readAsDataURL(file);
+            } else {
+                // Don't update the image field if no new image was uploaded
                 db.collection('products').doc(docId).update(updatedProduct)
                     .then(() => {
                         closeEditProductModal();
@@ -564,132 +587,123 @@ document.addEventListener('DOMContentLoaded', () => {
                         console.error('Error updating product:', error);
                         showAdminMessage('Error updating product. Please try again.', 'error');
                     });
-            };
-            
-            reader.readAsDataURL(file);
-        } else {
-            // Don't update the image field if no new image was uploaded
-            db.collection('products').doc(docId).update(updatedProduct)
+            }
+        });
+    }
+
+    // Image preview for edit product form
+    const editProductImageInput = document.querySelector('#edit-product-image');
+    if (editProductImageInput) {
+        editProductImageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.querySelector('#edit-product-image-preview').src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    // Product form submission with AGE + WEIGHT SYSTEM
+    if (productForm) {
+        productForm.addEventListener('submit', e => {
+            e.preventDefault();
+            console.log('Product form submitted with AGE + WEIGHT SYSTEM');
+            const title = document.querySelector('#product-title').value;
+            const age = parseFloat(document.querySelector('#product-age').value);
+            const weight = parseFloat(document.querySelector('#product-weight').value);
+            const weightUnit = document.querySelector('#weight-unit').value;
+            const price = parseFloat(document.querySelector('#product-price').value);
+            const category = document.querySelector('#product-category').value;
+            const quantity = parseInt(document.querySelector('#product-quantity').value);
+            const imageInput = document.querySelector('#product-image');
+
+            if (!title || isNaN(age) || isNaN(weight) || isNaN(price) || isNaN(quantity) || !imageInput.files.length) {
+                showAdminMessage('Please fill in all fields correctly and select an image.', 'error');
+                return;
+            }
+
+            if (age < 0.5 || age > 100) {
+                showAdminMessage('Age must be between 0.5 and 100 years.', 'error');
+                return;
+            }
+
+            if (weight < 0.1 || weight > 50) {
+                showAdminMessage('Weight must be between 0.1 and 50 (in the selected unit).', 'error');
+                return;
+            }
+
+            const file = imageInput.files[0];
+            if (!file.type.startsWith('image/')) {
+                showAdminMessage('Please upload an image file.', 'error');
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                showAdminMessage('Image size must be less than 5MB.', 'error');
+                return;
+            }
+
+            // Check if variant with same title, age, and weight exists
+            db.collection('products')
+                .where('title', '==', title.trim())
+                .where('age', '==', age)
+                .where('weight', '==', weight)
+                .where('weightUnit', '==', weightUnit)
+                .get()
+                .then((snapshot) => {
+                    if (!snapshot.empty) {
+                        const ageText = age === 1 ? '1 year' : `${age} years`;
+                        const weightText = `${weight}${weightUnit}`;
+                        showAdminMessage(`A variant with age ${ageText} and weight ${weightText} already exists for "${title}".`, 'error');
+                        return Promise.reject('Duplicate variant');
+                    }
+                    
+                    // Create new product variant
+                    const reader = new FileReader();
+                    return new Promise((resolve, reject) => {
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = () => reject('Error reading file');
+                        reader.readAsDataURL(file);
+                    });
+                })
+                .then((imageBase64) => {
+                    const newProduct = { 
+                        title: title.trim(), 
+                        age: age,
+                        weight: weight,
+                        weightUnit: weightUnit,
+                        price: price, 
+                        image: imageBase64, 
+                        category: category, 
+                        quantity: quantity,
+                        createdAt: new Date().toISOString(),
+                        createdBy: currentUser.id
+                    };
+                    
+                    // Log admin action
+                    logAdminAction('add_product', { productTitle: title, age: age, weight: weight, weightUnit: weightUnit });
+                    
+                    return db.collection('products').add(newProduct);
+                })
                 .then(() => {
-                    closeEditProductModal();
-                    showAdminMessage('Product variant updated successfully!', 'success');
+                    productForm.reset();
+                    showAdminMessage('Product variant added successfully!', 'success');
                     loadProducts(); // Reload products list
                 })
                 .catch(error => {
-                    console.error('Error updating product:', error);
-                    showAdminMessage('Error updating product. Please try again.', 'error');
+                    if (error === 'Duplicate variant') return; // Already handled
+                    if (error === 'Error reading file') {
+                        showAdminMessage('Error reading the image file.', 'error');
+                        return;
+                    }
+                    console.error('Error adding product:', error);
+                    showAdminMessage('Error adding product. Please try again.', 'error');
                 });
-        }
-    });
-
-    // Image preview for edit product form
-    document.querySelector('#edit-product-image').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                document.querySelector('#edit-product-image-preview').src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-
-    // Product form submission with AGE + WEIGHT SYSTEM
-    productForm.addEventListener('submit', e => {
-        e.preventDefault();
-        console.log('Product form submitted with AGE + WEIGHT SYSTEM');
-        const title = document.querySelector('#product-title').value;
-        const age = parseFloat(document.querySelector('#product-age').value);
-        const weight = parseFloat(document.querySelector('#product-weight').value);
-        const weightUnit = document.querySelector('#weight-unit').value;
-        const price = parseFloat(document.querySelector('#product-price').value);
-        const category = document.querySelector('#product-category').value;
-        const quantity = parseInt(document.querySelector('#product-quantity').value);
-        const imageInput = document.querySelector('#product-image');
-
-        if (!title || isNaN(age) || isNaN(weight) || isNaN(price) || isNaN(quantity) || !imageInput.files.length) {
-            showAdminMessage('Please fill in all fields correctly and select an image.', 'error');
-            return;
-        }
-
-        if (age < 0.5 || age > 100) {
-            showAdminMessage('Age must be between 0.5 and 100 years.', 'error');
-            return;
-        }
-
-        if (weight < 0.1 || weight > 50) {
-            showAdminMessage('Weight must be between 0.1 and 50 (in the selected unit).', 'error');
-            return;
-        }
-
-        const file = imageInput.files[0];
-        if (!file.type.startsWith('image/')) {
-            showAdminMessage('Please upload an image file.', 'error');
-            return;
-        }
-
-        if (file.size > 5 * 1024 * 1024) { // 5MB limit
-            showAdminMessage('Image size must be less than 5MB.', 'error');
-            return;
-        }
-
-        // Check if variant with same title, age, and weight exists
-        db.collection('products')
-            .where('title', '==', title.trim())
-            .where('age', '==', age)
-            .where('weight', '==', weight)
-            .where('weightUnit', '==', weightUnit)
-            .get()
-            .then((snapshot) => {
-                if (!snapshot.empty) {
-                    const ageText = age === 1 ? '1 year' : `${age} years`;
-                    const weightText = `${weight}${weightUnit}`;
-                    showAdminMessage(`A variant with age ${ageText} and weight ${weightText} already exists for "${title}".`, 'error');
-                    return Promise.reject('Duplicate variant');
-                }
-                
-                // Create new product variant
-                const reader = new FileReader();
-                return new Promise((resolve, reject) => {
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = () => reject('Error reading file');
-                    reader.readAsDataURL(file);
-                });
-            })
-            .then((imageBase64) => {
-                const newProduct = { 
-                    title: title.trim(), 
-                    age: age,
-                    weight: weight,
-                    weightUnit: weightUnit,
-                    price: price, 
-                    image: imageBase64, 
-                    category: category, 
-                    quantity: quantity,
-                    createdAt: new Date().toISOString(),
-                    createdBy: currentUser.id
-                };
-                
-                // Log admin action
-                logAdminAction('add_product', { productTitle: title, age: age, weight: weight, weightUnit: weightUnit });
-                
-                return db.collection('products').add(newProduct);
-            })
-            .then(() => {
-                productForm.reset();
-                showAdminMessage('Product variant added successfully!', 'success');
-                loadProducts(); // Reload products list
-            })
-            .catch(error => {
-                if (error === 'Duplicate variant') return; // Already handled
-                if (error === 'Error reading file') {
-                    showAdminMessage('Error reading the image file.', 'error');
-                    return;
-                }
-                console.error('Error adding product:', error);
-                showAdminMessage('Error adding product. Please try again.', 'error');
-            });
-    });
+        });
+    }
 
     // COURSE MANAGEMENT (updated with Firebase auth tracking)
     const courseForm = document.querySelector('#course-form');
@@ -699,19 +713,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const courseImage = document.querySelector('#course-image');
 
     // Image preview for main course form
-    courseImage.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                console.log('Image selected:', file.name);
-            };
-            reader.readAsDataURL(file);
-        }
-    });
+    if (courseImage) {
+        courseImage.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    console.log('Image selected:', file.name);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
 
     function loadCourses() {
         console.log('Loading admin courses from Firestore');
+        
+        if (!coursesList) return;
         
         // Clear the courses list first
         coursesList.innerHTML = '<p>Loading courses...</p>';
@@ -836,43 +854,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Close course modal button
-    const closeCourseModalBtn = document.querySelector('#edit-course-modal .cancel-btn');
-    if (closeCourseModalBtn) {
-        closeCourseModalBtn.addEventListener('click', closeEditCourseModal);
-    }
-
     // Handle edit course form submission
-    editCourseForm.addEventListener('submit', e => {
-        e.preventDefault();
-        
-        const docId = document.querySelector('#edit-course-index').value;
-        
-        // Create updated course object
-        const updatedCourse = {
-            title: document.querySelector('#edit-course-title').value,
-            description: document.querySelector('#edit-course-description').value,
-            price: parseFloat(document.querySelector('#edit-course-price').value),
-            duration: parseFloat(document.querySelector('#edit-course-duration').value),
-            level: document.querySelector('#edit-course-level').value,
-            category: document.querySelector('#edit-course-category').value,
-            updatedAt: new Date().toISOString(),
-            updatedBy: currentUser.id
-        };
-        
-        // Log admin action
-        logAdminAction('edit_course', { courseId: docId, updatedFields: Object.keys(updatedCourse) });
-        
-        // Check if new image was uploaded
-        const imageInput = document.querySelector('#edit-course-image');
-        if (imageInput.files.length > 0) {
-            const file = imageInput.files[0];
-            const reader = new FileReader();
+    if (editCourseForm) {
+        editCourseForm.addEventListener('submit', e => {
+            e.preventDefault();
             
-            reader.onload = () => {
-                updatedCourse.image = reader.result;
+            const docId = document.querySelector('#edit-course-index').value;
+            
+            // Create updated course object
+            const updatedCourse = {
+                title: document.querySelector('#edit-course-title').value,
+                description: document.querySelector('#edit-course-description').value,
+                price: parseFloat(document.querySelector('#edit-course-price').value),
+                duration: parseFloat(document.querySelector('#edit-course-duration').value),
+                level: document.querySelector('#edit-course-level').value,
+                category: document.querySelector('#edit-course-category').value,
+                updatedAt: new Date().toISOString(),
+                updatedBy: currentUser.id
+            };
+            
+            // Log admin action
+            logAdminAction('edit_course', { courseId: docId, updatedFields: Object.keys(updatedCourse) });
+            
+            // Check if new image was uploaded
+            const imageInput = document.querySelector('#edit-course-image');
+            if (imageInput.files.length > 0) {
+                const file = imageInput.files[0];
+                const reader = new FileReader();
                 
-                // Update course in Firestore
+                reader.onload = () => {
+                    updatedCourse.image = reader.result;
+                    
+                    // Update course in Firestore
+                    db.collection('courses').doc(docId).update(updatedCourse)
+                        .then(() => {
+                            closeEditCourseModal();
+                            showAdminMessage('Course updated successfully!', 'success');
+                            loadCourses(); // Reload courses list
+                        })
+                        .catch(error => {
+                            console.error('Error updating course:', error);
+                            showAdminMessage('Error updating course. Please try again.', 'error');
+                        });
+                };
+                
+                reader.readAsDataURL(file);
+            } else {
+                // Don't update the image field if no new image was uploaded
                 db.collection('courses').doc(docId).update(updatedCourse)
                     .then(() => {
                         closeEditCourseModal();
@@ -883,124 +911,419 @@ document.addEventListener('DOMContentLoaded', () => {
                         console.error('Error updating course:', error);
                         showAdminMessage('Error updating course. Please try again.', 'error');
                     });
-            };
-            
-            reader.readAsDataURL(file);
-        } else {
-            // Don't update the image field if no new image was uploaded
-            db.collection('courses').doc(docId).update(updatedCourse)
+            }
+        });
+    }
+
+    // Image preview for edit course form
+    const editCourseImageInput = document.querySelector('#edit-course-image');
+    if (editCourseImageInput) {
+        editCourseImageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.querySelector('#edit-course-image-preview').src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    if (courseForm) {
+        courseForm.addEventListener('submit', e => {
+            e.preventDefault();
+            console.log('Course form submitted');
+            const title = document.querySelector('#course-title').value;
+            const description = document.querySelector('#course-description').value;
+            const price = parseFloat(document.querySelector('#course-price').value);
+            const duration = parseFloat(document.querySelector('#course-duration').value);
+            const level = document.querySelector('#course-level').value;
+            const category = document.querySelector('#course-category').value;
+            const imageInput = document.querySelector('#course-image');
+
+            // Enhanced validation
+            if (!title || !description || !category || !level || isNaN(price) || isNaN(duration) || !imageInput.files.length) {
+                showAdminMessage('Please fill in all fields correctly and select an image.', 'error');
+                return;
+            }
+
+            if (title.length < 3) {
+                showAdminMessage('Title must be at least 3 characters long.', 'error');
+                return;
+            }
+
+            if (description.length < 20) {
+                showAdminMessage('Description should be more detailed (at least 20 characters).', 'error');
+                return;
+            }
+
+            const file = imageInput.files[0];
+            if (!file.type.startsWith('image/')) {
+                showAdminMessage('Please upload an image file.', 'error');
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                showAdminMessage('Image size must be less than 5MB.', 'error');
+                return;
+            }
+
+            // Check if course with same title exists
+            db.collection('courses').where('title', '==', title).get()
+                .then((snapshot) => {
+                    if (!snapshot.empty) {
+                        showAdminMessage('Course with this title already exists.', 'error');
+                        return Promise.reject('Duplicate title');
+                    }
+                    
+                    // Continue with adding the course
+                    const reader = new FileReader();
+                    return new Promise((resolve, reject) => {
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = () => reject('Error reading file');
+                        reader.readAsDataURL(file);
+                    });
+                })
+                .then((imageBase64) => {
+                    // Create new course in Firestore with proper formatting
+                    const newCourse = { 
+                        title: title.trim(), 
+                        description: description.trim(), 
+                        image: imageBase64, 
+                        price: price,
+                        duration: duration,
+                        level: level.trim(),
+                        category: category.trim(),
+                        createdAt: new Date().toISOString(),
+                        createdBy: currentUser.id
+                    };
+                    
+                    // Log admin action
+                    logAdminAction('add_course', { courseTitle: title, category: category });
+                    
+                    return db.collection('courses').add(newCourse);
+                })
                 .then(() => {
-                    closeEditCourseModal();
-                    showAdminMessage('Course updated successfully!', 'success');
+                    courseForm.reset();
+                    showAdminMessage('Course added successfully!', 'success');
                     loadCourses(); // Reload courses list
                 })
                 .catch(error => {
-                    console.error('Error updating course:', error);
-                    showAdminMessage('Error updating course. Please try again.', 'error');
+                    if (error === 'Duplicate title') return; // Already handled
+                    if (error === 'Error reading file') {
+                        showAdminMessage('Error reading the image file.', 'error');
+                        return;
+                    }
+                    console.error('Error adding course:', error);
+                    showAdminMessage('Error adding course. Please try again.', 'error');
                 });
-        }
-    });
+        });
+    }
 
-    // Image preview for edit course form
-    document.querySelector('#edit-course-image').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                document.querySelector('#edit-course-image-preview').src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-    });
+    // GALLERY MANAGEMENT - Add this section to admin-firebase.js
+    const galleryForm = document.querySelector('#gallery-form');
+    const galleryList = document.querySelector('#gallery-list');
+    const editGalleryModal = document.querySelector('#edit-gallery-modal');
+    const editGalleryForm = document.querySelector('#edit-gallery-form');
+    const galleryImage = document.querySelector('#gallery-image');
 
-    courseForm.addEventListener('submit', e => {
-        e.preventDefault();
-        console.log('Course form submitted');
-        const title = document.querySelector('#course-title').value;
-        const description = document.querySelector('#course-description').value;
-        const price = parseFloat(document.querySelector('#course-price').value);
-        const duration = parseFloat(document.querySelector('#course-duration').value);
-        const level = document.querySelector('#course-level').value;
-        const category = document.querySelector('#course-category').value;
-        const imageInput = document.querySelector('#course-image');
-
-        // Enhanced validation
-        if (!title || !description || !category || !level || isNaN(price) || isNaN(duration) || !imageInput.files.length) {
-            showAdminMessage('Please fill in all fields correctly and select an image.', 'error');
-            return;
-        }
-
-        if (title.length < 3) {
-            showAdminMessage('Title must be at least 3 characters long.', 'error');
-            return;
-        }
-
-        if (description.length < 20) {
-            showAdminMessage('Description should be more detailed (at least 20 characters).', 'error');
-            return;
-        }
-
-        const file = imageInput.files[0];
-        if (!file.type.startsWith('image/')) {
-            showAdminMessage('Please upload an image file.', 'error');
-            return;
-        }
-
-        if (file.size > 5 * 1024 * 1024) { // 5MB limit
-            showAdminMessage('Image size must be less than 5MB.', 'error');
-            return;
-        }
-
-        // Check if course with same title exists
-        db.collection('courses').where('title', '==', title).get()
-            .then((snapshot) => {
-                if (!snapshot.empty) {
-                    showAdminMessage('Course with this title already exists.', 'error');
-                    return Promise.reject('Duplicate title');
-                }
-                
-                // Continue with adding the course
+    // Gallery image preview for main form
+    if (galleryImage) {
+        galleryImage.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
                 const reader = new FileReader();
-                return new Promise((resolve, reject) => {
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = () => reject('Error reading file');
-                    reader.readAsDataURL(file);
-                });
-            })
-            .then((imageBase64) => {
-                // Create new course in Firestore with proper formatting
-                const newCourse = { 
-                    title: title.trim(), 
-                    description: description.trim(), 
-                    image: imageBase64, 
-                    price: price,
-                    duration: duration,
-                    level: level.trim(),
-                    category: category.trim(),
-                    createdAt: new Date().toISOString(),
-                    createdBy: currentUser.id
+                reader.onload = (e) => {
+                    console.log('Gallery image selected:', file.name);
                 };
-                
-                // Log admin action
-                logAdminAction('add_course', { courseTitle: title, category: category });
-                
-                return db.collection('courses').add(newCourse);
-            })
-            .then(() => {
-                courseForm.reset();
-                showAdminMessage('Course added successfully!', 'success');
-                loadCourses(); // Reload courses list
-            })
-            .catch(error => {
-                if (error === 'Duplicate title') return; // Already handled
-                if (error === 'Error reading file') {
-                    showAdminMessage('Error reading the image file.', 'error');
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    // Load gallery items for admin
+    function loadGalleryItems() {
+        console.log('Loading admin gallery items from Firestore');
+        
+        if (!galleryList) return;
+        
+        // Clear the gallery list first
+        galleryList.innerHTML = '<p>Loading gallery items...</p>';
+        
+        // Get gallery items from Firestore
+        db.collection('gallery').orderBy('createdAt', 'desc').get()
+            .then((snapshot) => {
+                if (snapshot.empty) {
+                    galleryList.innerHTML = '<p>No gallery items added yet. Add your first photo using the form above.</p>';
                     return;
                 }
-                console.error('Error adding course:', error);
-                showAdminMessage('Error adding course. Please try again.', 'error');
+                
+                let galleryHTML = '';
+                snapshot.forEach(doc => {
+                    const item = doc.data();
+                    const date = new Date(item.createdAt).toLocaleDateString();
+                    
+                    galleryHTML += `
+                        <div class="gallery-admin-item">
+                            <div class="gallery-admin-header">
+                                <img src="${item.image}" alt="${item.title}">
+                                <div class="gallery-admin-info">
+                                    <h3>${item.title}</h3>
+                                    <span class="gallery-admin-category">${getGalleryCategoryText(item.category)}</span>
+                                    <div class="gallery-admin-date">Added: ${date}</div>
+                                </div>
+                                <div class="gallery-admin-actions">
+                                    <button class="edit-gallery-btn" onclick="openEditGalleryModal('${doc.id}')">
+                                        <i class="fas fa-edit"></i> Edit Photo
+                                    </button>
+                                    <button class="delete-gallery-btn" onclick="deleteGalleryItem('${doc.id}')">
+                                        <i class="fas fa-trash"></i> Delete Photo
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="gallery-admin-description">
+                                <strong>Description:</strong><br>
+                                ${item.description}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                galleryList.innerHTML = galleryHTML;
+            })
+            .catch(error => {
+                console.error('Error getting gallery items:', error);
+                galleryList.innerHTML = '<p>Error loading gallery items. Please try again.</p>';
             });
-    });
+    }
+
+    // Get gallery category display text
+    function getGalleryCategoryText(category) {
+        if (!category) return 'General';
+        
+        const categoryMap = {
+            'team': 'Our Team',
+            'workspace': 'Workspace',
+            'environment': 'Environment',
+            'events': 'Events',
+            'process': 'Process',
+            'customers': 'Happy Customers'
+        };
+        
+        return categoryMap[category] || category.charAt(0).toUpperCase() + category.slice(1);
+    }
+
+    // Gallery form submission
+    if (galleryForm) {
+        galleryForm.addEventListener('submit', e => {
+            e.preventDefault();
+            console.log('Gallery form submitted');
+            
+            const title = document.querySelector('#gallery-title').value;
+            const description = document.querySelector('#gallery-description').value;
+            const category = document.querySelector('#gallery-category').value;
+            const imageInput = document.querySelector('#gallery-image');
+
+            // Enhanced validation
+            if (!title || !description || !category || !imageInput.files.length) {
+                showAdminMessage('Please fill in all fields and select an image.', 'error');
+                return;
+            }
+
+            if (title.length < 3) {
+                showAdminMessage('Title must be at least 3 characters long.', 'error');
+                return;
+            }
+
+            if (description.length < 10) {
+                showAdminMessage('Description should be more detailed (at least 10 characters).', 'error');
+                return;
+            }
+
+            const file = imageInput.files[0];
+            if (!file.type.startsWith('image/')) {
+                showAdminMessage('Please upload an image file.', 'error');
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                showAdminMessage('Image size must be less than 5MB.', 'error');
+                return;
+            }
+
+            // Check if gallery item with same title exists
+            db.collection('gallery').where('title', '==', title).get()
+                .then((snapshot) => {
+                    if (!snapshot.empty) {
+                        showAdminMessage('Gallery item with this title already exists.', 'error');
+                        return Promise.reject('Duplicate title');
+                    }
+                    
+                    // Continue with adding the gallery item
+                    const reader = new FileReader();
+                    return new Promise((resolve, reject) => {
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = () => reject('Error reading file');
+                        reader.readAsDataURL(file);
+                    });
+                })
+                .then((imageBase64) => {
+                    // Create new gallery item in Firestore
+                    const newGalleryItem = { 
+                        title: title.trim(), 
+                        description: description.trim(), 
+                        image: imageBase64, 
+                        category: category.trim(),
+                        createdAt: new Date().toISOString(),
+                        createdBy: currentUser.id
+                    };
+                    
+                    // Log admin action
+                    logAdminAction('add_gallery_item', { galleryTitle: title, category: category });
+                    
+                    return db.collection('gallery').add(newGalleryItem);
+                })
+                .then(() => {
+                    galleryForm.reset();
+                    showAdminMessage('Gallery photo added successfully!', 'success');
+                    loadGalleryItems(); // Reload gallery list
+                })
+                .catch(error => {
+                    if (error === 'Duplicate title') return; // Already handled
+                    if (error === 'Error reading file') {
+                        showAdminMessage('Error reading the image file.', 'error');
+                        return;
+                    }
+                    console.error('Error adding gallery item:', error);
+                    showAdminMessage('Error adding gallery photo. Please try again.', 'error');
+                });
+        });
+    }
+
+    // Make functions global for onclick handlers
+    window.openEditGalleryModal = function(docId) {
+        db.collection('gallery').doc(docId).get()
+            .then((doc) => {
+                if (!doc.exists) {
+                    showAdminMessage('Gallery item not found.', 'error');
+                    return;
+                }
+
+                const item = doc.data();
+                console.log('Opening edit modal for gallery item:', item.title);
+
+                // Show modal
+                editGalleryModal.classList.add('active');
+                
+                // Fill form with current values
+                document.querySelector('#edit-gallery-index').value = docId;
+                document.querySelector('#edit-gallery-title').value = item.title;
+                document.querySelector('#edit-gallery-description').value = item.description;
+                document.querySelector('#edit-gallery-category').value = item.category || '';
+                document.querySelector('#edit-gallery-image-preview').src = item.image;
+            })
+            .catch(error => {
+                console.error('Error fetching gallery item:', error);
+                showAdminMessage('Error loading gallery item details. Please try again.', 'error');
+            });
+    }
+
+    window.closeEditGalleryModal = function() {
+        editGalleryModal.classList.remove('active');
+    }
+
+    window.deleteGalleryItem = function(docId) {
+        if (confirm('Are you sure you want to delete this gallery photo?')) {
+            console.log('Delete gallery item clicked:', docId);
+            
+            // Log admin action
+            logAdminAction('delete_gallery_item', { galleryId: docId });
+            
+            db.collection('gallery').doc(docId).delete()
+                .then(() => {
+                    showAdminMessage('Gallery photo deleted successfully!', 'success');
+                    loadGalleryItems(); // Reload gallery list
+                })
+                .catch(error => {
+                    console.error('Error deleting gallery item:', error);
+                    showAdminMessage('Error deleting gallery photo. Please try again.', 'error');
+                });
+        }
+    }
+
+    // Handle edit gallery form submission
+    if (editGalleryForm) {
+        editGalleryForm.addEventListener('submit', e => {
+            e.preventDefault();
+            
+            const docId = document.querySelector('#edit-gallery-index').value;
+            
+            // Create updated gallery item object
+            const updatedGalleryItem = {
+                title: document.querySelector('#edit-gallery-title').value,
+                description: document.querySelector('#edit-gallery-description').value,
+                category: document.querySelector('#edit-gallery-category').value,
+                updatedAt: new Date().toISOString(),
+                updatedBy: currentUser.id
+            };
+            
+            // Log admin action
+            logAdminAction('edit_gallery_item', { galleryId: docId, updatedFields: Object.keys(updatedGalleryItem) });
+            
+            // Check if new image was uploaded
+            const imageInput = document.querySelector('#edit-gallery-image');
+            if (imageInput.files.length > 0) {
+                const file = imageInput.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = () => {
+                    updatedGalleryItem.image = reader.result;
+                    
+                    // Update gallery item in Firestore
+                    db.collection('gallery').doc(docId).update(updatedGalleryItem)
+                        .then(() => {
+                            closeEditGalleryModal();
+                            showAdminMessage('Gallery photo updated successfully!', 'success');
+                            loadGalleryItems(); // Reload gallery list
+                        })
+                        .catch(error => {
+                            console.error('Error updating gallery item:', error);
+                            showAdminMessage('Error updating gallery photo. Please try again.', 'error');
+                        });
+                };
+                
+                reader.readAsDataURL(file);
+            } else {
+                // Don't update the image field if no new image was uploaded
+                db.collection('gallery').doc(docId).update(updatedGalleryItem)
+                    .then(() => {
+                        closeEditGalleryModal();
+                        showAdminMessage('Gallery photo updated successfully!', 'success');
+                        loadGalleryItems(); // Reload gallery list
+                    })
+                    .catch(error => {
+                        console.error('Error updating gallery item:', error);
+                        showAdminMessage('Error updating gallery photo. Please try again.', 'error');
+                    });
+            }
+        });
+    }
+
+    // Image preview for edit gallery form
+    const editGalleryImage = document.querySelector('#edit-gallery-image');
+    if (editGalleryImage) {
+        editGalleryImage.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.querySelector('#edit-gallery-image-preview').src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
 
     // ORDERS MANAGEMENT - ORDER FUNCTIONALITY
     let allOrders = [];
@@ -1067,337 +1390,286 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayOrders(orders) {
-    const tableBody = document.getElementById('orders-table-body');
-    
-    if (!orders.length) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="9" style="text-align: center; padding: 3rem; color: #666;">
-                    <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem; display: block;"></i>
-                    No orders found
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
-    let tableHTML = '';
-    orders.forEach(order => {
-        const date = new Date(order.timestamp).toLocaleDateString();
-        const time = new Date(order.timestamp).toLocaleTimeString();
+        const tableBody = document.getElementById('orders-table-body');
         
-        // Format items summary
-        let itemsSummary = 'N/A';
-        if (order.items && order.items.length > 0) {
-            if (order.items.length === 1) {
-                itemsSummary = order.items[0].name;
-            } else {
-                itemsSummary = `${order.items[0].name} +${order.items.length - 1} more`;
-            }
-        }
-
-        // Format delivery info
-        const deliveryInfo = order.deliveryAddress ? 
-            `${order.deliveryAddress.city}, ${order.deliveryAddress.province}` : 
-            'No delivery';
-        
-        const shippingCost = order.shippingCost || order.shippingDetails?.shippingCost || 0;
-
-        tableHTML += `
-            <tr>
-                <td><span class="order-id">${order.orderId || 'N/A'}</span></td>
-                <td>
-                    <div>${date}</div>
-                    <small style="color: #666;">${time}</small>
-                </td>
-                <td><span class="order-status status-${order.status || 'pending'}">${(order.status || 'pending').toUpperCase()}</span></td>
-                <td>
-                    <div>${order.customerName || 'Guest'}</div>
-                    <small style="color: #666;">${order.customerEmail || 'N/A'}</small>
-                </td>
-                <td>
-                    <div class="order-items">${itemsSummary}</div>
-                    <small style="color: #666;">${order.items ? order.items.length : 0} item(s)</small>
-                </td>
-                <td>
-                    <div class="delivery-location">
-                        <strong>${deliveryInfo}</strong>
-                    </div>
-                    <small style="color: #666;">Shipping: R${shippingCost.toFixed(2)}</small>
-                </td>
-                <td><span class="order-amount">R${(order.amount || 0).toFixed(2)}</span></td>
-                <td>
-                    <span class="order-id">${order.paymentId || 'N/A'}</span>
-                </td>
-                <td>
-                    <div class="order-actions">
-                        <button class="action-btn view-btn" onclick="viewOrderDetails('${order.id}')">
-                            <i class="fas fa-eye"></i> View
-                        </button>
-                        <button class="action-btn update-btn" onclick="updateOrderStatus('${order.id}')">
-                            <i class="fas fa-edit"></i> Update
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    });
-
-    tableBody.innerHTML = tableHTML;
-    function updateAdminOrdersTable() {
-    const ordersContainer = document.getElementById('orders-container');
-    if (!ordersContainer) return;
-    
-    // Update table headers to include delivery column
-    const tableHTML = `
-        <div class="loading-overlay" id="orders-loading">
-            <div class="loading-spinner"></div>
-        </div>
-        <table class="orders-table">
-            <thead>
-                <tr>
-                    <th>Order ID</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th>Customer</th>
-                    <th>Items</th>
-                    <th>Delivery & Shipping</th>
-                    <th>Total Amount</th>
-                    <th>Payment ID</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody id="orders-table-body">
+        if (!orders.length) {
+            tableBody.innerHTML = `
                 <tr>
                     <td colspan="9" style="text-align: center; padding: 3rem; color: #666;">
                         <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem; display: block;"></i>
-                        Click "Manage Orders" tab to load orders
+                        No orders found
                     </td>
                 </tr>
-            </tbody>
-        </table>
-    `;
-    
-    ordersContainer.innerHTML = tableHTML;
-}
+            `;
+            return;
+        }
 
-// Call this function when the admin page loads
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-        updateAdminOrdersTable();
-    }, 1000);
-});
-}
+        let tableHTML = '';
+        orders.forEach(order => {
+            const date = new Date(order.timestamp).toLocaleDateString();
+            const time = new Date(order.timestamp).toLocaleTimeString();
+            
+            // Format items summary
+            let itemsSummary = 'N/A';
+            if (order.items && order.items.length > 0) {
+                if (order.items.length === 1) {
+                    itemsSummary = order.items[0].name;
+                } else {
+                    itemsSummary = `${order.items[0].name} +${order.items.length - 1} more`;
+                }
+            }
+
+            // Format delivery info
+            const deliveryInfo = order.deliveryAddress ? 
+                `${order.deliveryAddress.city}, ${order.deliveryAddress.province}` : 
+                'No delivery';
+            
+            const shippingCost = order.shippingCost || order.shippingDetails?.shippingCost || 0;
+
+            tableHTML += `
+                <tr>
+                    <td><span class="order-id">${order.orderId || 'N/A'}</span></td>
+                    <td>
+                        <div>${date}</div>
+                        <small style="color: #666;">${time}</small>
+                    </td>
+                    <td><span class="order-status status-${order.status || 'pending'}">${(order.status || 'pending').toUpperCase()}</span></td>
+                    <td>
+                        <div>${order.customerName || 'Guest'}</div>
+                        <small style="color: #666;">${order.customerEmail || 'N/A'}</small>
+                    </td>
+                    <td>
+                        <div class="order-items">${itemsSummary}</div>
+                        <small style="color: #666;">${order.items ? order.items.length : 0} item(s)</small>
+                    </td>
+                    <td>
+                        <div class="delivery-location">
+                            <strong>${deliveryInfo}</strong>
+                        </div>
+                        <small style="color: #666;">Shipping: R${shippingCost.toFixed(2)}</small>
+                    </td>
+                    <td><span class="order-amount">R${(order.amount || 0).toFixed(2)}</span></td>
+                    <td>
+                        <span class="order-id">${order.paymentId || 'N/A'}</span>
+                    </td>
+                    <td>
+                        <div class="order-actions">
+                            <button class="action-btn view-btn" onclick="viewOrderDetails('${order.id}')">
+                                <i class="fas fa-eye"></i> View
+                            </button>
+                            <button class="action-btn update-btn" onclick="updateOrderStatus('${order.id}')">
+                                <i class="fas fa-edit"></i> Update
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableBody.innerHTML = tableHTML;
+    }
 
     // Global functions for order management
     window.viewOrderDetails = function(orderId) {
-    const order = allOrders.find(o => o.id === orderId);
-    if (!order) {
-        showAdminMessage('Order not found.', 'error');
-        return;
-    }
+        const order = allOrders.find(o => o.id === orderId);
+        if (!order) {
+            showAdminMessage('Order not found.', 'error');
+            return;
+        }
 
-    console.log('Viewing order details with delivery:', orderId);
-    
-    const modal = document.getElementById('order-detail-modal');
-    const modalTitle = document.getElementById('order-detail-title');
-    const modalBody = document.getElementById('order-detail-body');
-    
-    modalTitle.textContent = `Order #${order.orderId || orderId}`;
-    
-    // Enhanced order details with delivery information
-    let orderDetailsHTML = `
-        <!-- Order Information Section -->
-        <div class="detail-section">
-            <h4><i class="fas fa-info-circle"></i> Order Information</h4>
-            <div class="detail-grid">
-                <div class="detail-item">
-                    <span class="detail-label">Order ID</span>
-                    <span class="detail-value order-id">${order.orderId || orderId}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Date & Time</span>
-                    <span class="detail-value">${new Date(order.timestamp).toLocaleString()}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Status</span>
-                    <span class="detail-value">
-                        <span class="order-status status-${order.status || 'pending'}">
-                            ${(order.status || 'pending').toUpperCase()}
-                        </span>
-                    </span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Payment Method</span>
-                    <span class="detail-value">${order.paymentMethod || 'PayFast'}</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Customer Information Section -->
-        <div class="detail-section">
-            <h4><i class="fas fa-user"></i> Customer Information</h4>
-            <div class="detail-grid">
-                <div class="detail-item">
-                    <span class="detail-label">Name</span>
-                    <span class="detail-value">${order.customerName || 'Guest Customer'}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Email</span>
-                    <span class="detail-value">${order.customerEmail || 'Not provided'}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Customer Type</span>
-                    <span class="detail-value">${order.customerType || 'guest'}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Payment ID</span>
-                    <span class="detail-value order-id">${order.paymentId || 'N/A'}</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Delivery Information Section -->
-        <div class="detail-section">
-            <h4><i class="fas fa-truck"></i> Delivery Information</h4>
-            ${order.deliveryAddress ? `
-                <div class="delivery-address-card">
-                    <div class="address-header">
-                        <span class="delivery-zone-badge zone-${order.deliveryAddress.deliveryZone || 'unknown'}">
-                            ${(order.deliveryAddress.deliveryZone || 'Unknown').toUpperCase()} DELIVERY
+        console.log('Viewing order details:', orderId);
+        
+        const modal = document.getElementById('order-detail-modal');
+        const modalTitle = document.getElementById('order-detail-title');
+        const modalBody = document.getElementById('order-detail-body');
+        
+        modalTitle.textContent = `Order #${order.orderId || orderId}`;
+        
+        // Enhanced order details with delivery information
+        let orderDetailsHTML = `
+            <div class="detail-section">
+                <h4><i class="fas fa-info-circle"></i> Order Information</h4>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">Order ID</span>
+                        <span class="detail-value order-id">${order.orderId || orderId}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Date & Time</span>
+                        <span class="detail-value">${new Date(order.timestamp).toLocaleString()}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Status</span>
+                        <span class="detail-value">
+                            <span class="order-status status-${order.status || 'pending'}">
+                                ${(order.status || 'pending').toUpperCase()}
+                            </span>
                         </span>
                     </div>
-                    <div class="address-details">
-                        <p><strong>Address:</strong> ${order.deliveryAddress.fullAddress || 'Address not available'}</p>
-                        <div class="delivery-stats">
-                            <div class="stat-item">
-                                <span class="stat-label">Zone:</span>
-                                <span class="stat-value">${order.deliveryAddress.deliveryZone || 'Unknown'}</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Estimated Time:</span>
-                                <span class="stat-value">${order.deliveryAddress.estimatedDeliveryTime || 'N/A'}</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Total Weight:</span>
-                                <span class="stat-value">${order.totalWeight || 0}kg</span>
+                    <div class="detail-item">
+                        <span class="detail-label">Payment Method</span>
+                        <span class="detail-value">${order.paymentMethod || 'PayFast'}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="detail-section">
+                <h4><i class="fas fa-user"></i> Customer Information</h4>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">Name</span>
+                        <span class="detail-value">${order.customerName || 'Guest Customer'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Email</span>
+                        <span class="detail-value">${order.customerEmail || 'Not provided'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Customer Type</span>
+                        <span class="detail-value">${order.customerType || 'guest'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Payment ID</span>
+                        <span class="detail-value order-id">${order.paymentId || 'N/A'}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="detail-section">
+                <h4><i class="fas fa-truck"></i> Delivery Information</h4>
+                ${order.deliveryAddress ? `
+                    <div class="delivery-address-card">
+                        <div class="address-details">
+                            <p><strong>Address:</strong> ${order.deliveryAddress.fullAddress || 'Address not available'}</p>
+                            <div class="delivery-stats">
+                                <div class="stat-item">
+                                    <span class="stat-label">Zone:</span>
+                                    <span class="stat-value">${order.deliveryAddress.deliveryZone || 'Unknown'}</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Estimated Time:</span>
+                                    <span class="stat-value">${order.deliveryAddress.estimatedDeliveryTime || 'N/A'}</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Total Weight:</span>
+                                    <span class="stat-value">${order.totalWeight || 0}kg</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            ` : `
-                <div class="no-delivery-info">
-                    <p><i class="fas fa-info-circle"></i> No delivery information provided for this order.</p>
-                </div>
-            `}
-        </div>
-
-        <!-- Order Items Section -->
-        <div class="detail-section">
-            <h4><i class="fas fa-shopping-bag"></i> Order Items</h4>
-    `;
-
-    if (order.items && order.items.length > 0) {
-        orderDetailsHTML += '<div class="order-items-list">';
-        order.items.forEach(item => {
-            const itemTotal = (item.price * item.quantity).toFixed(2);
-            orderDetailsHTML += `
-                <div class="order-item-card">
-                    <div class="item-details">
-                        <div class="item-name"><strong>${item.name}</strong></div>
-                        <div class="item-meta">
-                            <span>Qty: ${item.quantity}</span>
-                            <span>Unit Price: R${item.price.toFixed(2)}</span>
-                            ${item.variantId ? `<span>ID: ${item.variantId}</span>` : ''}
-                        </div>
+                ` : `
+                    <div class="no-delivery-info">
+                        <p><i class="fas fa-info-circle"></i> No delivery information provided for this order.</p>
                     </div>
-                    <div class="item-total">R${itemTotal}</div>
-                </div>
-            `;
-        });
-        orderDetailsHTML += '</div>';
-    } else {
-        orderDetailsHTML += '<p style="color: #666; font-style: italic;">No items recorded for this order.</p>';
-    }
+                `}
+            </div>
 
-    orderDetailsHTML += `
-        </div>
+            <div class="detail-section">
+                <h4><i class="fas fa-shopping-bag"></i> Order Items</h4>
+        `;
 
-        <!-- Financial Breakdown Section -->
-        <div class="detail-section">
-            <h4><i class="fas fa-calculator"></i> Financial Breakdown</h4>
-            <div class="financial-breakdown">
-                <div class="breakdown-row">
-                    <span class="breakdown-label">Subtotal:</span>
-                    <span class="breakdown-value">R${(order.subtotal || 0).toFixed(2)}</span>
-                </div>
-                <div class="breakdown-row shipping-row">
-                    <span class="breakdown-label">Shipping Cost:</span>
-                    <span class="breakdown-value">R${(order.shippingCost || order.shippingDetails?.shippingCost || 0).toFixed(2)}</span>
-                </div>
-                <div class="breakdown-row total-row">
-                    <span class="breakdown-label">Total Paid:</span>
-                    <span class="breakdown-value">R${(order.amount || 0).toFixed(2)}</span>
+        if (order.items && order.items.length > 0) {
+            orderDetailsHTML += '<div class="order-items-list">';
+            order.items.forEach(item => {
+                const itemTotal = (item.price * item.quantity).toFixed(2);
+                orderDetailsHTML += `
+                    <div class="order-item-card">
+                        <div class="item-details">
+                            <div class="item-name"><strong>${item.name}</strong></div>
+                            <div class="item-meta">
+                                <span>Qty: ${item.quantity}</span>
+                                <span>Unit Price: R${item.price.toFixed(2)}</span>
+                                ${item.variantId ? `<span>ID: ${item.variantId}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="item-total">R${itemTotal}</div>
+                    </div>
+                `;
+            });
+            orderDetailsHTML += '</div>';
+        } else {
+            orderDetailsHTML += '<p style="color: #666; font-style: italic;">No items recorded for this order.</p>';
+        }
+
+        orderDetailsHTML += `
+            </div>
+
+            <div class="detail-section">
+                <h4><i class="fas fa-calculator"></i> Financial Breakdown</h4>
+                <div class="financial-breakdown">
+                    <div class="breakdown-row">
+                        <span class="breakdown-label">Subtotal:</span>
+                        <span class="breakdown-value">R${(order.subtotal || 0).toFixed(2)}</span>
+                    </div>
+                    <div class="breakdown-row shipping-row">
+                        <span class="breakdown-label">Shipping Cost:</span>
+                        <span class="breakdown-value">R${(order.shippingCost || order.shippingDetails?.shippingCost || 0).toFixed(2)}</span>
+                    </div>
+                    <div class="breakdown-row total-row">
+                        <span class="breakdown-label">Total Paid:</span>
+                        <span class="breakdown-value">R${(order.amount || 0).toFixed(2)}</span>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Status Update Section -->
-        <div class="detail-section">
-            <h4><i class="fas fa-edit"></i> Update Order Status</h4>
-            <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 10px;">
-                <select id="update-status-select" style="width: 100%; margin-bottom: 1rem; padding: 0.8rem; border: 2px solid var(--border-color); border-radius: 5px;">
-                    <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
-                    <option value="processing" ${order.status === 'processing' ? 'selected' : ''}>Processing</option>
-                    <option value="shipped" ${order.status === 'shipped' ? 'selected' : ''}>Shipped</option>
-                    <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
-                    <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Completed</option>
-                    <option value="failed" ${order.status === 'failed' ? 'selected' : ''}>Failed</option>
-                    <option value="refunded" ${order.status === 'refunded' ? 'selected' : ''}>Refunded</option>
-                </select>
-                <button onclick="saveOrderStatus('${order.id}')" style="background: var(--green-primary); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 5px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
-                    <i class="fas fa-save"></i> Update Status
-                </button>
+            <div class="detail-section">
+                <h4><i class="fas fa-edit"></i> Update Order Status</h4>
+                <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 10px;">
+                    <select id="update-status-select" style="width: 100%; margin-bottom: 1rem; padding: 0.8rem; border: 2px solid var(--border-color); border-radius: 5px;">
+                        <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
+                        <option value="processing" ${order.status === 'processing' ? 'selected' : ''}>Processing</option>
+                        <option value="shipped" ${order.status === 'shipped' ? 'selected' : ''}>Shipped</option>
+                        <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
+                        <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Completed</option>
+                        <option value="failed" ${order.status === 'failed' ? 'selected' : ''}>Failed</option>
+                        <option value="refunded" ${order.status === 'refunded' ? 'selected' : ''}>Refunded</option>
+                    </select>
+                    <button onclick="saveOrderStatus('${order.id}')" style="width: 100%; padding: 0.8rem; background: var(--primary-color); color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        <i class="fas fa-save"></i> Update Status
+                    </button>
+                </div>
             </div>
-        </div>
-    `;
+        `;
 
-    modalBody.innerHTML = orderDetailsHTML;
-    modal.classList.add('active');
-
-
+        modalBody.innerHTML = orderDetailsHTML;
+        modal.style.display = 'flex';
     };
 
     window.updateOrderStatus = function(orderId) {
+        // This function can be used for quick status updates
         viewOrderDetails(orderId);
     };
 
     window.saveOrderStatus = function(orderId) {
         const newStatus = document.getElementById('update-status-select').value;
+        const order = allOrders.find(o => o.id === orderId);
         
-        console.log(`Updating order ${orderId} status to:`, newStatus);
-        
-        // Log admin action
-        logAdminAction('update_order_status', { orderId, newStatus, oldStatus: allOrders.find(o => o.id === orderId)?.status });
+        if (!order) {
+            showAdminMessage('Order not found.', 'error');
+            return;
+        }
 
+        // Update status in Firestore
         db.collection('orders').doc(orderId).update({
             status: newStatus,
             lastUpdated: new Date().toISOString(),
             updatedBy: currentUser.id
         })
         .then(() => {
-            showAdminMessage(`Order status updated to ${newStatus.toUpperCase()}.`, 'success');
+            // Update local array
+            order.status = newStatus;
             
-            // Update local data
-            const orderIndex = allOrders.findIndex(o => o.id === orderId);
-            if (orderIndex !== -1) {
-                allOrders[orderIndex].status = newStatus;
-                filteredOrders = [...allOrders];
-                displayOrders(filteredOrders);
-                updateOrdersStats(allOrders);
-            }
+            // Log admin action
+            logAdminAction('update_order_status', { orderId: orderId, newStatus: newStatus });
             
-            closeOrderDetailModal();
+            showAdminMessage(`Order status updated to ${newStatus.toUpperCase()}!`, 'success');
+            
+            // Refresh the display
+            displayOrders(filteredOrders);
+            updateOrdersStats(allOrders);
+            
+            // Close the modal
+            document.getElementById('order-detail-modal').style.display = 'none';
         })
         .catch(error => {
             console.error('Error updating order status:', error);
@@ -1405,215 +1677,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    // Close modal function
     window.closeOrderDetailModal = function() {
-        const modal = document.getElementById('order-detail-modal');
-        modal.classList.remove('active');
+        document.getElementById('order-detail-modal').style.display = 'none';
     };
 
-    window.applyOrderFilters = function() {
-        const statusFilter = document.getElementById('status-filter').value;
-        const dateFrom = document.getElementById('date-from').value;
-        const dateTo = document.getElementById('date-to').value;
-
-        console.log('Applying filters:', { statusFilter, dateFrom, dateTo });
-
-        filteredOrders = allOrders.filter(order => {
-            // Status filter
-            if (statusFilter && order.status !== statusFilter) {
-                return false;
-            }
-
-            // Date filters
-            const orderDate = new Date(order.timestamp);
-            if (dateFrom && orderDate < new Date(dateFrom)) {
-                return false;
-            }
-            if (dateTo && orderDate > new Date(dateTo + 'T23:59:59')) {
-                return false;
-            }
-
-            return true;
-        });
-
-        displayOrders(filteredOrders);
-        updateOrdersStats(filteredOrders);
-        
-        showAdminMessage(`Applied filters. Showing ${filteredOrders.length} of ${allOrders.length} orders.`, 'success');
-    };
-
-
-    // Export orders to CSV
-    window.exportOrdersToCSV = function() {
-        if (!allOrders.length) {
-            showAdminMessage('No orders to export.', 'error');
-            return;
-        }
-
-        console.log('Exporting orders to CSV...');
-        
-        // CSV headers
-        const headers = [
-            'Order ID',
-            'Date',
-            'Status',
-            'Customer Name',
-            'Customer Email',
-            'Items Count',
-            'Total Amount',
-            'Payment ID',
-            'Payment Method',
-            'Created At'
-        ];
-        
-        // Convert orders to CSV format
-        const csvData = [
-            headers.join(','),
-            ...allOrders.map(order => {
-                const row = [
-                    `"${order.orderId || 'N/A'}"`,
-                    `"${new Date(order.timestamp).toLocaleDateString()}"`,
-                    `"${order.status || 'pending'}"`,
-                    `"${order.customerName || 'Guest'}"`,
-                    `"${order.customerEmail || 'N/A'}"`,
-                    `"${order.items ? order.items.length : 0}"`,
-                    `"${(order.amount || 0).toFixed(2)}"`,
-                    `"${order.paymentId || 'N/A'}"`,
-                    `"${order.paymentMethod || 'payfast'}"`,
-                    `"${order.timestamp || 'N/A'}"`
-                ];
-                return row.join(',');
-            })
-        ].join('\n');
-        
-        // Create and download CSV file
-        const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        
-        link.setAttribute('href', url);
-        link.setAttribute('download', `teien-tamashii-orders-${new Date().toISOString().split('T')[0]}.csv`);
-        link.style.visibility = 'hidden';
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        showAdminMessage(`Exported ${allOrders.length} orders to CSV.`, 'success');
-        
-        // Log admin action
-        logAdminAction('export_orders', { 
-            orderCount: allOrders.length, 
-            format: 'csv',
-            dateRange: {
-                from: allOrders[allOrders.length - 1]?.timestamp,
-                to: allOrders[0]?.timestamp
-            }
-        });
-    };
-
-    // Generate sales report
-    window.generateSalesReport = function() {
-        console.log('Generating sales report...');
-        
-        if (!allOrders.length) {
-            showAdminMessage('No orders available for report generation.', 'error');
-            return;
-        }
-        
-        // Calculate report data
-        const completedOrders = allOrders.filter(order => order.status === 'completed');
-        const totalRevenue = completedOrders.reduce((sum, order) => sum + (order.amount || 0), 0);
-        
-        // Top products
-        const productSales = {};
-        completedOrders.forEach(order => {
-            if (order.items) {
-                order.items.forEach(item => {
-                    if (!productSales[item.name]) {
-                        productSales[item.name] = { quantity: 0, revenue: 0 };
-                    }
-                    productSales[item.name].quantity += item.quantity;
-                    productSales[item.name].revenue += item.total || (item.price * item.quantity);
-                });
-            }
-        });
-        
-        // Sort top products by revenue
-        const topProducts = Object.entries(productSales)
-            .sort(([,a], [,b]) => b.revenue - a.revenue)
-            .slice(0, 10);
-        
-        // Create report modal
-        const reportModal = document.createElement('div');
-        reportModal.className = 'order-detail-modal active';
-        reportModal.innerHTML = `
-            <div class="order-detail-content" style="max-width: 800px;">
-                <div class="order-detail-header">
-                    <h3><i class="fas fa-chart-line"></i> Sales Report</h3>
-                    <button class="close-detail-modal" onclick="this.closest('.order-detail-modal').remove()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="order-detail-body">
-                    <div class="detail-section">
-                        <h4>Summary</h4>
-                        <div class="detail-grid">
-                            <div class="detail-item">
-                                <span class="detail-label">Total Orders</span>
-                                <span class="detail-value">${allOrders.length}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Completed Orders</span>
-                                <span class="detail-value">${completedOrders.length}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Total Revenue</span>
-                                <span class="detail-value">R${totalRevenue.toFixed(2)}</span>
-                            </div>
-                            <div class="detail-item">
-                                <span class="detail-label">Average Order Value</span>
-                                <span class="detail-value">R${completedOrders.length ? (totalRevenue / completedOrders.length).toFixed(2) : '0.00'}</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="detail-section">
-                        <h4>Top Products</h4>
-                        <div style="max-height: 250px; overflow-y: auto;">
-                            ${topProducts.map(([name, data], index) => `
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.8rem; border-bottom: 1px solid #eee;">
-                                    <div>
-                                        <strong>#${index + 1} ${name}</strong><br>
-                                        <small>Sold: ${data.quantity} units</small>
-                                    </div>
-                                    <div style="text-align: right;">
-                                        <strong>R${data.revenue.toFixed(2)}</strong>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(reportModal);
-        
-        // Log admin action
-        logAdminAction('generate_sales_report', {
-            totalOrders: allOrders.length,
-            completedOrders: completedOrders.length,
-            totalRevenue: totalRevenue,
-            reportDate: new Date().toISOString()
-        });
-        
-        showAdminMessage('Sales report generated successfully.', 'success');
-    };
-
-    // Load data when the page loads
+    // Load initial data when DOM is ready
     loadProducts();
     loadCourses();
 
-    console.log('AGE + WEIGHT SYSTEM admin panel loaded with complete orders management functionality');
-}
-);
+    console.log('Admin Firebase script with Gallery Management loaded successfully!');
+});

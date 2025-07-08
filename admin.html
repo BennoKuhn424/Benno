@@ -426,6 +426,172 @@
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
+
+        /* Gallery Management Styles */
+        #gallery-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .gallery-admin-item {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .gallery-admin-item:hover {
+            border-color: var(--green-primary);
+            box-shadow: 0 8px 30px rgba(46, 125, 50, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .gallery-admin-header {
+            display: flex;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            background: linear-gradient(135deg, #f8f9fa, #fff);
+            border-bottom: 2px solid #e9ecef;
+            min-height: 120px;
+        }
+
+        .gallery-admin-header img {
+            width: 100px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 12px;
+            margin-right: 1.5rem;
+            border: 3px solid var(--green-primary);
+            box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2);
+            flex-shrink: 0;
+        }
+
+        .gallery-admin-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .gallery-admin-info h3 {
+            margin: 0 0 0.5rem 0;
+            color: var(--green-primary);
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .gallery-admin-category {
+            color: var(--green-primary);
+            font-weight: 600;
+            font-size: 1rem;
+            margin: 0.5rem 0;
+            padding: 0.3rem 0.8rem;
+            background: rgba(46, 125, 50, 0.1);
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        .gallery-admin-date {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        .gallery-admin-actions {
+            display: flex;
+            gap: 1rem;
+            flex-direction: row;
+            align-items: center;
+            margin-left: 2rem;
+        }
+
+        .gallery-admin-description {
+            padding: 1.5rem 2rem;
+            background: #f8f9fa;
+            border-left: 4px solid var(--green-primary);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #555;
+            margin: 0;
+        }
+
+        .edit-gallery-btn, .delete-gallery-btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 1rem;
+            min-width: 140px;
+            justify-content: center;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .edit-gallery-btn {
+            background: linear-gradient(135deg, #2e7d32, #1b5e20);
+            color: white;
+            box-shadow: 0 4px 15px rgba(46, 125, 50, 0.3);
+            border: 2px solid transparent;
+        }
+
+        .edit-gallery-btn:hover {
+            background: linear-gradient(135deg, #1b5e20, #0d4f12);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(46, 125, 50, 0.4);
+            border-color: #4caf50;
+        }
+
+        .delete-gallery-btn {
+            background: linear-gradient(135deg, #d32f2f, #f44336);
+            color: white;
+            box-shadow: 0 4px 15px rgba(211, 47, 47, 0.3);
+            border: 2px solid transparent;
+        }
+
+        .delete-gallery-btn:hover {
+            background: linear-gradient(135deg, #b71c1c, #d32f2f);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(211, 47, 47, 0.4);
+            border-color: #f44336;
+        }
+
+        /* Responsive design for gallery admin */
+        @media (max-width: 768px) {
+            .gallery-admin-header {
+                flex-direction: column;
+                text-align: center;
+                gap: 1rem;
+            }
+
+            .gallery-admin-header img {
+                margin: 0;
+            }
+
+            .gallery-admin-actions {
+                flex-direction: column;
+                width: 100%;
+                margin-left: 0;
+            }
+
+            .edit-gallery-btn, .delete-gallery-btn {
+                width: 100%;
+                max-width: 200px;
+            }
+
+            .gallery-admin-description {
+                padding: 1rem;
+            }
+        }
         
         /* Responsive Design */
         @media (max-width: 768px) {
@@ -469,6 +635,7 @@
         </div>
         <ul class="nav-links">
             <li><a href="index.html">Back to Main</a></li>
+            <li><a href="gallery.html">View Gallery</a></li>
             <li><a href="#" id="logout-link">Logout</a></li>
         </ul>
         <div class="burger">
@@ -479,10 +646,11 @@
     <section class="admin-panel">
         <h2>Admin Dashboard</h2>
         
-        <!-- Admin Tab Navigation - UPDATED TO INCLUDE ORDERS TAB -->
+        <!-- Admin Tab Navigation - UPDATED TO INCLUDE GALLERY TAB -->
         <div class="admin-tabs">
             <button class="tab-btn active" data-tab="products">Manage Products</button>
             <button class="tab-btn" data-tab="courses">Manage Courses</button>
+            <button class="tab-btn" data-tab="gallery">Manage Gallery</button>
             <button class="tab-btn" data-tab="orders">Manage Orders</button>
         </div>
         
@@ -524,6 +692,7 @@
                     <option value="bonsai-tools">Bonsai Tools</option>
                     <option value="bonsai-wire">Bonsai Wire</option>
                     <option value="bonsai-accessories">Bonsai Accessories</option>
+                    <option value="rare-succulents-cacti">Rare Succulents & Cacti</option>
                     <option value="orchids">Orchids</option>
                     <option value="airplants">Air Plants</option>
                     <option value="terrariums">Terrariums</option>
@@ -577,6 +746,34 @@
             </form>
             <h3>Courses List</h3>
             <div id="courses-list"></div>
+        </div>
+
+        <!-- Gallery Tab Content -->
+        <div class="admin-content tab-content" id="gallery-tab">
+            <h3>Add New Gallery Photo</h3>
+            <form id="gallery-form">
+                <input type="text" id="gallery-title" placeholder="Photo Title (e.g., 'Team Meeting', 'Workshop Setup')" required>
+                <textarea id="gallery-description" placeholder="Photo Description" rows="3" required></textarea>
+                <select id="gallery-category" required>
+                    <option value="">Select Category</option>
+                    <option value="team">Our Team</option>
+                    <option value="workspace">Workspace</option>
+                    <option value="environment">Environment</option>
+                    <option value="events">Events</option>
+                    <option value="process">Process</option>
+                    <option value="customers">Happy Customers</option>
+                </select>
+                <label for="gallery-image" class="file-label">
+                    <span>Upload Photo</span>
+                    <input type="file" id="gallery-image" accept="image/*" required>
+                </label>
+                <button type="submit" class="cta-btn">Add Photo to Gallery</button>
+            </form>
+            
+            <h3>Gallery Photos</h3>
+            <div id="gallery-list">
+                <!-- Gallery items will be loaded here -->
+            </div>
         </div>
         
         <!-- NEW: Orders Tab Content -->
@@ -726,6 +923,7 @@
                     <option value="bonsai-tools">Bonsai Tools</option>
                     <option value="bonsai-wire">Bonsai Wire</option>
                     <option value="bonsai-accessories">Bonsai Accessories</option>
+                    <option value="rare-succulents-cacti">Rare Succulents & Cacti</option>
                     <option value="orchids">Orchids</option>
                     <option value="airplants">Air Plants</option>
                     <option value="terrariums">Terrariums</option>
@@ -781,6 +979,34 @@
                 <img id="edit-course-image-preview" src="" alt="Current Image" style="width: 200px; margin: 10px auto;">
                 <button type="submit" class="cta-btn">Save Changes</button>
                 <button type="button" class="cancel-btn" onclick="closeEditCourseModal()">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Gallery Modal -->
+    <div class="edit-modal" id="edit-gallery-modal">
+        <div class="modal-content">
+            <h3>Edit Gallery Photo</h3>
+            <form id="edit-gallery-form">
+                <input type="hidden" id="edit-gallery-index">
+                <input type="text" id="edit-gallery-title" placeholder="Photo Title" required>
+                <textarea id="edit-gallery-description" placeholder="Photo Description" rows="3" required></textarea>
+                <select id="edit-gallery-category" required>
+                    <option value="">Select Category</option>
+                    <option value="team">Our Team</option>
+                    <option value="workspace">Workspace</option>
+                    <option value="environment">Environment</option>
+                    <option value="events">Events</option>
+                    <option value="process">Process</option>
+                    <option value="customers">Happy Customers</option>
+                </select>
+                <label for="edit-gallery-image" class="file-label">
+                    <span>Change Photo (optional)</span>
+                    <input type="file" id="edit-gallery-image" accept="image/*">
+                </label>
+                <img id="edit-gallery-image-preview" src="" alt="Current Photo" style="width: 200px; margin: 10px auto; border-radius: 8px;">
+                <button type="submit" class="cta-btn">Save Changes</button>
+                <button type="button" class="cancel-btn" onclick="closeEditGalleryModal()">Cancel</button>
             </form>
         </div>
     </div>

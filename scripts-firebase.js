@@ -1,8 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('scripts-firebase.js loaded with CART MAINTENANCE MODE - Shopping works, purchasing temporarily disabled');
-
-    // ===== CART MAINTENANCE MODE FLAG =====
-    const CART_MAINTENANCE_MODE = true; // Set to false to re-enable purchasing
+    console.log('scripts-firebase.js loaded with DEMO MODE PayFast and AGE + WEIGHT SYSTEM + PERSISTENT CART');
 
     // Safe localStorage wrapper to handle security restrictions
     const safeStorage = {
@@ -84,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Authentication System (keeping existing auth code as is)
+    // Authentication System
     const authModal = document.querySelector('#auth-modal');
     const authForm = document.querySelector('#auth-form');
     const authTitle = document.querySelector('#auth-title');
@@ -413,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ===== PERSISTENT CART FUNCTIONALITY (Working, but purchase disabled) =====
+    // ===== PERSISTENT CART FUNCTIONALITY =====
     
     // Cart state
     let cartItems = [];
@@ -469,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Update cart display with maintenance mode warning
+    // Update cart display
     function updateCartDisplay() {
         if (!cartContent) return;
         
@@ -481,41 +478,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="cart-empty">
                     <i class="fas fa-shopping-cart"></i>
                     <p>Your cart is empty</p>
-                    ${CART_MAINTENANCE_MODE ? `
-                        <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 1rem; margin-top: 1rem; color: #856404;">
-                            <i class="fas fa-tools"></i>
-                            <strong>Cart is Working!</strong><br>
-                            <small>Add items to test the cart functionality. Purchasing is temporarily disabled for maintenance.</small>
-                        </div>
-                    ` : ''}
                 </div>
             `;
         } else {
-            // Show maintenance warning at top if in maintenance mode
-            if (CART_MAINTENANCE_MODE) {
-                const maintenanceWarning = document.createElement('div');
-                maintenanceWarning.style.cssText = `
-                    background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-                    border: 2px solid #ff9800;
-                    border-radius: 10px;
-                    padding: 1rem;
-                    margin-bottom: 1rem;
-                    text-align: center;
-                    color: #856404;
-                    font-weight: 600;
-                    animation: pulse 2s infinite;
-                `;
-                maintenanceWarning.innerHTML = `
-                    <i class="fas fa-tools" style="font-size: 1.2rem; margin-bottom: 0.5rem; display: block;"></i>
-                    <strong>🛠️ CART FUNCTIONALITY TEST MODE 🛠️</strong><br>
-                    <small style="font-weight: normal; margin-top: 0.5rem; display: block;">
-                        Cart is working perfectly! You can add, remove, and modify items.<br>
-                        Purchasing is temporarily disabled for maintenance.
-                    </small>
-                `;
-                cartContent.appendChild(maintenanceWarning);
-            }
-            
             cartItems.forEach((item, index) => {
                 const cartBox = document.createElement('div');
                 cartBox.classList.add('cart-box');
@@ -552,6 +517,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         decrementBtn.disabled = item.quantity <= 1;
                         updateCartTotals();
                         saveCartToStorage();
+                        // Recalculate delivery if address exists
+                        if (deliveryAddress) {
+                            setTimeout(calculateDelivery, 100);
+                        }
                     }
                 });
                 
@@ -561,6 +530,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     decrementBtn.disabled = false;
                     updateCartTotals();
                     saveCartToStorage();
+                    // Recalculate delivery if address exists
+                    if (deliveryAddress) {
+                        setTimeout(calculateDelivery, 100);
+                    }
                 });
                 
                 removeBtn.addEventListener('click', () => {
@@ -569,16 +542,38 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
+        // Add delivery section if cart has items
+        if (cartItems.length > 0) {
+            addDeliverySection();
+        }
+        
         updateCartTotals();
     }
 
-    // Update cart totals and badge
+    // Update cart totals and badge (MODIFIED to include delivery)
     function updateCartTotals() {
+        // Calculate subtotal
         const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const finalTotal = subtotal + currentDeliveryCost;
         
-        if (totalPriceElement) {
-            totalPriceElement.textContent = `R${subtotal.toFixed(2)}`;
+        // Update display elements
+        const subtotalElement = document.getElementById('subtotal-price');
+        const deliveryRow = document.getElementById('delivery-cost-row');
+        const deliveryPriceElement = document.getElementById('delivery-price');
+        const finalTotalElement = document.getElementById('final-total-price');
+        const oldTotalElement = document.querySelector('.total-price:not(#final-total-price)');
+        
+        if (subtotalElement) subtotalElement.textContent = `R${subtotal.toFixed(2)}`;
+        
+        if (currentDeliveryCost > 0) {
+            if (deliveryRow) deliveryRow.style.display = 'flex';
+            if (deliveryPriceElement) deliveryPriceElement.textContent = `R${currentDeliveryCost.toFixed(2)}`;
+        } else {
+            if (deliveryRow) deliveryRow.style.display = 'none';
         }
+        
+        if (finalTotalElement) finalTotalElement.textContent = `R${finalTotal.toFixed(2)}`;
+        if (oldTotalElement) oldTotalElement.textContent = `R${finalTotal.toFixed(2)}`;
         
         // Update item count
         cartItemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
@@ -588,7 +583,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Add item to cart (working normally)
+    // Add item to cart
     function addToCart(productData) {
         console.log('Adding to cart:', productData);
         
@@ -601,7 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (existingItemIndex !== -1) {
             // Item exists, increase quantity
             cartItems[existingItemIndex].quantity++;
-            alert('✅ Item quantity increased in cart!\n\n🛠️ Cart is working perfectly! Purchasing temporarily disabled for maintenance.');
+            alert('Item quantity increased in cart!');
         } else {
             // New item
             cartItems.push({
@@ -613,182 +608,399 @@ document.addEventListener('DOMContentLoaded', () => {
                 age: productData.age,
                 weight: productData.weight
             });
-            alert('✅ Item added to cart!\n\n🛠️ Cart is working perfectly! Purchasing temporarily disabled for maintenance.');
+            alert('Item added to cart!');
         }
         
         updateCartDisplay();
         saveCartToStorage();
     }
 
-    // Remove item from cart (working normally)
+    // Remove item from cart
     function removeFromCart(index) {
         cartItems.splice(index, 1);
         updateCartDisplay();
         saveCartToStorage();
     }
 
-    // Clear entire cart (working normally)
+    // Clear entire cart (MODIFIED to include delivery)
     function clearCart() {
         cartItems = [];
         cartItemCount = 0;
+        currentDeliveryCost = 0;
+        deliveryAddress = null;
         updateCartDisplay();
         saveCartToStorage();
+    }
+
+    // Add delivery section to cart
+    function addDeliverySection() {
+        const cart = document.querySelector('.cart');
+        const totalSection = cart.querySelector('.total');
+        
+        if (!cart || !totalSection) return;
+        
+        // Check if delivery section already exists
+        if (cart.querySelector('.delivery-section')) return;
+        
+        const deliverySection = document.createElement('div');
+        deliverySection.className = 'delivery-section';
+        deliverySection.innerHTML = `
+            <div class="delivery-header">
+                <h3><i class="fas fa-truck"></i> Delivery Information</h3>
+            </div>
+            
+            <div class="delivery-form">
+                <div class="address-input-group">
+                    <label for="delivery-address">Delivery Address:</label>
+                    <input type="text" id="delivery-address" placeholder="Street address">
+                    <input type="text" id="delivery-city" placeholder="City">
+                    <input type="text" id="delivery-province" placeholder="Province">
+                    <input type="text" id="delivery-postal" placeholder="Postal Code">
+                </div>
+                
+                <button type="button" id="calculate-delivery" class="calculate-btn">
+                    <i class="fas fa-calculator"></i> Calculate Delivery
+                </button>
+                
+                <div class="delivery-results" id="delivery-results" style="display: none;">
+                    <div class="delivery-info">
+                        <div class="weight-info">
+                            <span class="label">Total Weight:</span>
+                            <span class="value" id="total-weight">0kg</span>
+                        </div>
+                        <div class="delivery-zone">
+                            <span class="label">Delivery Zone:</span>
+                            <span class="value" id="delivery-zone">-</span>
+                        </div>
+                        <div class="delivery-time">
+                            <span class="label">Estimated Time:</span>
+                            <span class="value" id="delivery-time">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="delivery-cost">
+                        <span class="delivery-cost-label">Delivery Cost:</span>
+                        <span class="delivery-cost-value" id="delivery-cost-value">R0.00</span>
+                    </div>
+                </div>
+                
+                <div class="delivery-note">
+                    <p><i class="fas fa-info-circle"></i> Delivery from: ${DELIVERY_CONFIG.originAddress}</p>
+                </div>
+            </div>
+        `;
+        
+        // Insert delivery section before total section
+        cart.insertBefore(deliverySection, totalSection);
+        
+        // Update total section structure
+        updateTotalSection();
+        
+        // Set up event listeners
+        setupDeliveryEventListeners();
+    }
+
+    function updateTotalSection() {
+        const totalSection = document.querySelector('.total');
+        if (!totalSection) return;
+        
+        // Check if already updated
+        if (totalSection.querySelector('.subtotal-row')) return;
+        
+        // Restructure total section
+        totalSection.innerHTML = `
+            <div class="cost-breakdown">
+                <div class="subtotal-row">
+                    <span class="subtotal-label">Subtotal:</span>
+                    <span class="subtotal-price" id="subtotal-price">R0.00</span>
+                </div>
+                <div class="delivery-row" id="delivery-cost-row" style="display: none;">
+                    <span class="delivery-label">Delivery:</span>
+                    <span class="delivery-price" id="delivery-price">R0.00</span>
+                </div>
+                <div class="total-row">
+                    <span class="total-title">Total:</span>
+                    <span class="total-price" id="final-total-price">R0.00</span>
+                </div>
+            </div>
+        `;
+    }
+
+    function setupDeliveryEventListeners() {
+        const calculateBtn = document.getElementById('calculate-delivery');
+        const addressInput = document.getElementById('delivery-address');
+        const cityInput = document.getElementById('delivery-city');
+        
+        if (calculateBtn) {
+            calculateBtn.addEventListener('click', calculateDelivery);
+        }
+        
+        // Auto-calculate when address changes
+        [addressInput, cityInput].forEach(input => {
+            if (input) {
+                input.addEventListener('blur', () => {
+                    if (addressInput && cityInput && addressInput.value && cityInput.value) {
+                        calculateDelivery();
+                    }
+                });
+            }
+        });
+    }
+
+    function calculateDelivery() {
+        const addressInput = document.getElementById('delivery-address');
+        const cityInput = document.getElementById('delivery-city');
+        const provinceInput = document.getElementById('delivery-province');
+        
+        if (!addressInput || !cityInput) {
+            alert('Please enter at least street address and city.');
+            return;
+        }
+        
+        const address = addressInput.value.trim();
+        const city = cityInput.value.trim();
+        const province = provinceInput ? provinceInput.value.trim() : '';
+        
+        if (!address || !city) {
+            alert('Please enter a complete delivery address.');
+            return;
+        }
+        
+        // Store delivery address
+        deliveryAddress = {
+            address: address,
+            city: city,
+            province: province
+        };
+        
+        // Calculate total weight from cart items
+        const totalWeight = calculateTotalWeight();
+        
+        // Determine delivery zone
+        const zone = determineDeliveryZone(city, province);
+        
+        // Get delivery cost
+        const deliveryCost = getDeliveryCost(totalWeight, zone);
+        
+        // Get estimated delivery time
+        const deliveryTime = getEstimatedDeliveryTime(zone);
+        
+        // Update UI
+        updateDeliveryResults(totalWeight, zone, deliveryCost, deliveryTime);
+        
+        // Update cart totals with delivery
+        currentDeliveryCost = deliveryCost;
+        updateCartTotals();
+        
+        console.log('Delivery calculated:', {
+            totalWeight,
+            zone,
+            deliveryCost,
+            deliveryTime,
+            address: `${address}, ${city}, ${province}`
+        });
+    }
+
+    function calculateTotalWeight() {
+        let totalWeight = 0;
+        
+        cartItems.forEach(item => {
+            let itemWeight = 0;
+            
+            if (item.weight) {
+                const weightStr = item.weight.toString().toLowerCase();
+                const weightNum = parseFloat(weightStr.replace(/[^\d.]/g, ''));
+                
+                if (weightStr.includes('g') && !weightStr.includes('kg')) {
+                    itemWeight = weightNum / 1000; // Convert grams to kg
+                } else {
+                    itemWeight = weightNum; // Assume kg
+                }
+            } else {
+                itemWeight = 0.5; // Default weight per item
+            }
+            
+            totalWeight += itemWeight * item.quantity;
+        });
+        
+        return Math.round(totalWeight * 100) / 100;
+    }
+
+    function determineDeliveryZone(city, province = '') {
+        const cityLower = city.toLowerCase();
+        const provinceLower = province.toLowerCase();
+        
+        // Check local zone
+        if (DELIVERY_CONFIG.zones.local.some(location => 
+            cityLower.includes(location) || location.includes(cityLower)
+        )) {
+            return 'local';
+        }
+        
+        // Check regional zone
+        if (DELIVERY_CONFIG.zones.regional.some(location => 
+            cityLower.includes(location) || location.includes(cityLower)
+        )) {
+            return 'regional';
+        }
+        
+        // Check if Gauteng province
+        if (provinceLower.includes('gauteng')) {
+            return 'regional';
+        }
+        
+        return 'national';
+    }
+
+    function getDeliveryCost(weight, zone) {
+        const rates = DELIVERY_CONFIG.rates[zone];
+        
+        if (!rates) {
+            console.error('Invalid delivery zone:', zone);
+            return 0;
+        }
+        
+        let weightBand;
+        if (weight <= 1) {
+            weightBand = "0-1";
+        } else if (weight <= 2) {
+            weightBand = "1-2";
+        } else if (weight <= 5) {
+            weightBand = "2-5";
+        } else if (weight <= 10) {
+            weightBand = "5-10";
+        } else if (weight <= 20) {
+            weightBand = "10-20";
+        } else if (weight <= 30) {
+            weightBand = "20-30";
+        } else {
+            weightBand = "30+";
+        }
+        
+        return rates[weightBand] || 0;
+    }
+
+    function getEstimatedDeliveryTime(zone) {
+        const times = {
+            local: "1-2 business days",
+            regional: "2-3 business days", 
+            national: "3-5 business days"
+        };
+        
+        return times[zone] || "3-5 business days";
+    }
+
+    function updateDeliveryResults(weight, zone, cost, time) {
+        const resultsDiv = document.getElementById('delivery-results');
+        const weightElement = document.getElementById('total-weight');
+        const zoneElement = document.getElementById('delivery-zone');
+        const timeElement = document.getElementById('delivery-time');
+        const costElement = document.getElementById('delivery-cost-value');
+        
+        if (resultsDiv) resultsDiv.style.display = 'block';
+        if (weightElement) weightElement.textContent = `${weight}kg`;
+        if (zoneElement) {
+            const zoneText = zone.charAt(0).toUpperCase() + zone.slice(1);
+            zoneElement.textContent = zoneText;
+            zoneElement.className = `value zone-${zone}`;
+        }
+        if (timeElement) timeElement.textContent = time;
+        if (costElement) costElement.textContent = `R${cost.toFixed(2)}`;
+    }
+
+    function calculateTotalWeightFromItems(items) {
+        if (!items || !Array.isArray(items)) return 0;
+        
+        let totalWeight = 0;
+        items.forEach(item => {
+            let itemWeight = 0;
+            
+            if (item.weight) {
+                const weightStr = item.weight.toString().toLowerCase();
+                const weightNum = parseFloat(weightStr.replace(/[^\d.]/g, ''));
+                
+                if (weightStr.includes('g') && !weightStr.includes('kg')) {
+                    itemWeight = weightNum / 1000;
+                } else {
+                    itemWeight = weightNum;
+                }
+            } else {
+                itemWeight = 0.5;
+            }
+            
+            totalWeight += itemWeight * item.quantity;
+        });
+        
+        return Math.round(totalWeight * 100) / 100;
+    }
+
+    function formatFullAddress(address) {
+        if (!address) return '';
+        return `${address.address || ''}, ${address.city || ''}, ${address.province || ''}`.replace(/,\s*,/g, ',').replace(/^,|,$/g, '');
     }
 
     // Make functions globally available
     window.addToCart = addToCart;
     window.clearCart = clearCart;
 
-    // ===== MAINTENANCE MODE PURCHASE BLOCKING =====
+    // ===== DELIVERY FUNCTIONALITY =====
     
-    function initializeMaintenanceMode() {
-        console.log('Initializing Cart Maintenance Mode...');
+    // Delivery configuration and functions
+    const DELIVERY_CONFIG = {
+        originAddress: "1309 Cunningham Ave, Waverley, Pretoria, 0186",
         
-        const checkButton = setInterval(() => {
-            const buyButton = document.querySelector('.btn-buy');
-            if (buyButton) {
-                console.log('Buy button found, setting up maintenance mode...');
-                clearInterval(checkButton);
-                
-                // Replace the buy button functionality
-                buyButton.replaceWith(buyButton.cloneNode(true));
-                const newBuyButton = document.querySelector('.btn-buy');
-                
-                // Update button appearance for maintenance mode
-                newBuyButton.innerHTML = '<i class="fas fa-tools"></i> Purchase Temporarily Disabled';
-                newBuyButton.style.background = 'linear-gradient(135deg, #6c757d, #495057)';
-                newBuyButton.style.cursor = 'not-allowed';
-                
-                newBuyButton.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Maintenance mode purchase attempt blocked');
-                    
-                    // Show maintenance mode modal
-                    showMaintenanceModal();
-                });
-                
-                console.log('Maintenance mode activated for purchase button');
+        rates: {
+            local: {
+                "0-1": 85,
+                "1-2": 95,
+                "2-5": 120,
+                "5-10": 165,
+                "10-20": 220,
+                "20-30": 285,
+                "30+": 350
+            },
+            regional: {
+                "0-1": 105,
+                "1-2": 125,
+                "2-5": 155,
+                "5-10": 195,
+                "10-20": 265,
+                "20-30": 340,
+                "30+": 415
+            },
+            national: {
+                "0-1": 135,
+                "1-2": 165,
+                "2-5": 205,
+                "5-10": 275,
+                "10-20": 365,
+                "20-30": 465,
+                "30+": 565
             }
-        }, 100);
+        },
         
-        setTimeout(() => clearInterval(checkButton), 10000);
-    }
-
-    function showMaintenanceModal() {
-        const modal = document.createElement('div');
-        modal.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            padding: 20px;
-        `;
-        
-        modal.innerHTML = `
-            <div style="
-                background: white;
-                padding: 3rem 2rem;
-                border-radius: 20px;
-                max-width: 500px;
-                width: 100%;
-                text-align: center;
-                box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-                animation: modalSlideIn 0.3s ease-out;
-            ">
-                <div style="font-size: 4rem; margin-bottom: 1rem;">🛠️</div>
-                <h2 style="color: #2e7d32; margin-bottom: 1rem; font-family: 'Lora', serif;">Cart Functionality Test</h2>
-                
-                <div style="background: #e8f5e9; padding: 1.5rem; border-radius: 10px; margin: 1.5rem 0; border-left: 4px solid #4caf50;">
-                    <h4 style="color: #2e7d32; margin-bottom: 10px;">✅ Cart is Working Perfectly!</h4>
-                    <p style="color: #1976d2; margin: 0; font-size: 0.95rem;">
-                        You can browse products, add items to cart, modify quantities, and remove items. 
-                        All cart functionality is operational and being tested.
-                    </p>
-                </div>
-                
-                <div style="background: #fff3cd; padding: 1.5rem; border-radius: 10px; margin: 1.5rem 0; border-left: 4px solid #ff9800;">
-                    <h4 style="color: #856404; margin-bottom: 10px;">🚧 Purchasing Temporarily Disabled</h4>
-                    <p style="color: #856404; margin: 0; font-size: 0.95rem;">
-                        Payment processing is temporarily disabled while we perform maintenance and testing. 
-                        Normal purchasing will resume soon!
-                    </p>
-                </div>
-                
-                <div style="margin: 2rem 0;">
-                    <strong>Current Cart Status:</strong>
-                    <div style="font-family: monospace; background: #f5f5f5; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-                        Items in Cart: <span style="color: #2e7d32; font-weight: bold;">${cartItems.length} types</span><br>
-                        Total Quantity: <span style="color: #2e7d32; font-weight: bold;">${cartItemCount} items</span><br>
-                        Cart Value: <span style="color: #2e7d32; font-weight: bold;">R${cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}</span>
-                    </div>
-                </div>
-                
-                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
-                    <button onclick="this.closest('div').parentElement.remove()" style="
-                        padding: 1rem 2rem; 
-                        background: #4caf50; 
-                        color: white; 
-                        border: none; 
-                        border-radius: 25px; 
-                        cursor: pointer; 
-                        font-weight: 600;
-                        font-size: 16px;
-                    ">
-                        <i class="fas fa-check"></i> Continue Testing Cart
-                    </button>
-                    <a href="shop.html" style="
-                        padding: 1rem 2rem; 
-                        background: #2196f3; 
-                        color: white; 
-                        text-decoration: none; 
-                        border-radius: 25px; 
-                        font-weight: 600;
-                        font-size: 16px;
-                        display: inline-block;
-                    ">
-                        <i class="fas fa-shopping-bag"></i> Browse More Items
-                    </a>
-                </div>
-                
-                <p style="margin-top: 2rem; color: #666; font-size: 0.9rem;">
-                    <i class="fas fa-info-circle"></i> 
-                    Thank you for testing our cart functionality!
-                </p>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        // Add animation keyframes if not already present
-        if (!document.querySelector('#modal-keyframes')) {
-            const style = document.createElement('style');
-            style.id = 'modal-keyframes';
-            style.textContent = `
-                @keyframes modalSlideIn {
-                    from { opacity: 0; transform: translateY(-30px) scale(0.9); }
-                    to { opacity: 1; transform: translateY(0) scale(1); }
-                }
-            `;
-            document.head.appendChild(style);
+        zones: {
+            local: [
+                "pretoria", "tshwane", "centurion", "midrand", "irene", "waverley",
+                "hatfield", "arcadia", "sunnyside", "brooklyn", "menlyn", "garsfontein"
+            ],
+            regional: [
+                "johannesburg", "sandton", "randburg", "roodepoort", "soweto", "germiston",
+                "kempton park", "benoni", "boksburg", "alberton", "springs", "nigel",
+                "vanderbijlpark", "vereeniging", "sasolburg", "potchefstroom", "klerksdorp",
+                "rustenburg", "brits"
+            ],
+            national: [
+                "cape town", "durban", "port elizabeth", "east london", "bloemfontein",
+                "kimberley", "polokwane", "nelspruit", "witbank", "secunda", "phalaborwa"
+            ]
         }
-        
-        // Close modal when clicking outside
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.remove();
-            }
-        });
-    }
+    };
 
-    // ===== EXISTING PRODUCT LOADING FUNCTIONS =====
-    
+    // Global delivery variables
+    let currentDeliveryCost = 0;
+    let deliveryAddress = null;
+
     function isShopPage() {
         return window.location.pathname.includes('shop.html');
     }
@@ -873,11 +1085,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <i class="fas fa-cog"></i> Select Variant
                             </button>
                         </div>
-                        ${CART_MAINTENANCE_MODE ? `
-                            <div style="background: #e8f5e9; border: 1px solid #4caf50; border-radius: 6px; padding: 0.5rem; margin-top: 0.5rem; text-align: center; font-size: 0.8rem; color: #2e7d32;">
-                                <i class="fas fa-check-circle"></i> Cart Testing Active
-                            </div>
-                        ` : ''}
                     </div>
                 `;
             });
@@ -897,39 +1104,40 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function getCategoryText(category) {
-        if (!category) return 'General Product';
-        
-        const categoryMap = {
-            'prebonsai': 'Pre-Bonsai',
-            'seedlings': 'Seedlings',
-            'silver-bonsai': 'Silver Bonsai',
-            'gold-bonsai': 'Gold Bonsai',
-            'platinum-bonsai': 'Platinum Bonsai',
-            'imported-bonsai': 'Imported Bonsai',
-            'bonsai-pots': 'Bonsai Pots',
-            'bonsai-tools': 'Bonsai Tools',
-            'bonsai-wire': 'Bonsai Wire',
-            'bonsai-accessories': 'Bonsai Accessories',
-            'orchids': 'Orchids',
-            'airplants': 'Air Plants',
-            'terrariums': 'Terrariums',
-            'aquariums': 'Aquariums',
-            'aqua-scapes': 'Aqua Scapes',
-            'rocks': 'Rocks',
-            'driftwood': 'Driftwood',
-            'pebbles': 'Pebbles',
-            'mosses': 'Mosses',
-            'pot-dressings': 'Pot Dressings'
-        };
-        
-        if (category.includes(',')) {
-            const categories = category.split(',').map(cat => cat.trim());
-            return categories.map(cat => categoryMap[cat] || cat.charAt(0).toUpperCase() + cat.slice(1)).join(', ');
-        }
-        
-        return categoryMap[category] || category.charAt(0).toUpperCase() + category.slice(1);
+   function getCategoryText(category) {
+    if (!category) return 'General Product';
+    
+    const categoryMap = {
+        'prebonsai': 'Pre-Bonsai',
+        'seedlings': 'Seedlings',
+        'silver-bonsai': 'Silver Bonsai',
+        'gold-bonsai': 'Gold Bonsai',
+        'platinum-bonsai': 'Platinum Bonsai',
+        'imported-bonsai': 'Imported Bonsai',
+        'bonsai-pots': 'Bonsai Pots',
+        'bonsai-tools': 'Bonsai Tools',
+        'bonsai-wire': 'Bonsai Wire',
+        'bonsai-accessories': 'Bonsai Accessories',
+        'rare-succulents-cacti': 'Rare Succulents & Cacti',
+        'orchids': 'Orchids',
+        'airplants': 'Air Plants',
+        'terrariums': 'Terrariums',
+        'aquariums': 'Aquariums',
+        'aqua-scapes': 'Aqua Scapes',
+        'rocks': 'Rocks',
+        'driftwood': 'Driftwood',
+        'pebbles': 'Pebbles',
+        'mosses': 'Mosses',
+        'pot-dressings': 'Pot Dressings'
+    };
+    
+    if (category.includes(',')) {
+        const categories = category.split(',').map(cat => cat.trim());
+        return categories.map(cat => categoryMap[cat] || cat.charAt(0).toUpperCase() + cat.slice(1)).join(', ');
     }
+    
+    return categoryMap[category] || category.charAt(0).toUpperCase() + category.slice(1);
+}
 
     // Shop page filters
     if (isShopPage()) {
@@ -1000,11 +1208,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                     : `<span class="out-of-stock-label">Unavailable</span>`
                                 }
                             </div>
-                            ${CART_MAINTENANCE_MODE && p.quantity > 0 ? `
-                                <div style="background: #e8f5e9; border: 1px solid #4caf50; border-radius: 6px; padding: 0.5rem; margin-top: 0.5rem; text-align: center; font-size: 0.8rem; color: #2e7d32;">
-                                    <i class="fas fa-tools"></i> Cart Test Mode
-                                </div>
-                            ` : ''}
                         </div>
                     `;
                 });
@@ -1510,7 +1713,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p style="margin: 0 0 1.5rem 0; opacity: 0.9; font-size: 1rem;">
                             Chat with us on WhatsApp to book this course or ask any questions!
                         </p>
-                        <a href="https://wa.me/27824659960?text=Hi%20Teien%20Tamashii,%20I'm%20interested%20in%20the%20${encodeURIComponent(course.title)}%20course.%20Can%20you%20provide%20more%20information%20about%20booking%20and%20schedule?" 
+                        <a href="https://wa.me/27123456789?text=Hi%20Teien%20Tamashii,%20I'm%20interested%20in%20the%20${encodeURIComponent(course.title)}%20course.%20Can%20you%20provide%20more%20information%20about%20booking%20and%20schedule?" 
                            target="_blank"
                            style="
                                display: inline-flex;
@@ -1604,7 +1807,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // ===== VARIANT SELECTION MODAL FUNCTIONS =====
+    // ===== VARIANT SELECTION MODAL FUNCTIONS (UPDATED FOR AGE + WEIGHT) =====
     window.openVariantModal = function(productTitle) {
         console.log('Opening variant modal for:', productTitle);
         
@@ -1673,17 +1876,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (variants.length === 0) {
                     optionsHTML = '<p>All variants are currently out of stock.</p>';
-                } else if (CART_MAINTENANCE_MODE) {
-                    optionsHTML = `
-                        <div style="background: #e8f5e9; border: 2px solid #4caf50; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; text-align: center;">
-                            <h3 style="color: #2e7d32; margin: 0 0 1rem 0;">
-                                <i class="fas fa-tools"></i> Cart Test Mode Active
-                            </h3>
-                            <p style="color: #1b5e20; margin: 0; font-size: 0.95rem;">
-                                Add items to test cart functionality. Purchasing is temporarily disabled for maintenance.
-                            </p>
-                        </div>
-                    ` + optionsHTML;
                 }
                 
                 variantOptions.innerHTML = optionsHTML;
@@ -1726,12 +1918,507 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ===== INITIALIZATION =====
+    // ===== FIXED DEMO MODE PAYFAST INTEGRATION =====
+
+    // FIXED: Enhanced cart processing with better error handling
+    function processDemoPayment() {
+        console.log('DEMO MODE: Processing payment with delivery...');
+        
+        // Validate cart
+        if (!cartItems || cartItems.length === 0) {
+            alert('Your cart is empty. Please add items to continue.');
+            return;
+        }
+
+        let subtotal = 0;
+        let orderItems = [];
+        
+        try {
+            cartItems.forEach(item => {
+                if (!item.price || !item.quantity) {
+                    throw new Error('Invalid item in cart');
+                }
+                subtotal += item.price * item.quantity;
+                orderItems.push({
+                    name: item.name,
+                    price: item.price,
+                    quantity: item.quantity,
+                    variantId: item.variantId,
+                    total: item.price * item.quantity
+                });
+            });
+
+            const total = subtotal + (currentDeliveryCost || 0);
+
+            if (total <= 0) {
+                alert('Invalid cart total. Please refresh and try again.');
+                return;
+            }
+
+            const orderId = `DEMO_TT${Date.now()}${Math.floor(Math.random() * 1000)}`;
+            
+            const completedOrder = {
+                orderId: orderId,
+                items: orderItems,
+                subtotal: subtotal,
+                deliveryCost: currentDeliveryCost || 0,
+                deliveryAddress: deliveryAddress,
+                total: total,
+                timestamp: new Date().toISOString(),
+                status: 'completed'
+            };
+            
+            console.log('DEMO MODE: Creating completed order with delivery:', completedOrder);
+            
+            // Store order data
+            try {
+                safeStorage.setItem('completedOrder', JSON.stringify(completedOrder));
+            } catch (error) {
+                console.error('Failed to store order data:', error);
+            }
+
+            // Show confirmation and proceed
+            showDemoPaymentConfirmation(completedOrder, () => {
+                proceedToSuccessDemo(orderId, completedOrder);
+            });
+            
+        } catch (error) {
+            console.error('Error processing payment:', error);
+            alert('Error processing payment. Please try again.');
+        }
+    }
+
+    // FIXED: Enhanced success flow
+    function proceedToSuccessDemo(orderId, orderData) {
+        console.log('DEMO MODE: Proceeding to success page...');
+        
+        // Update buy button state
+        const buyButton = document.querySelector('.btn-buy');
+        if (buyButton) {
+            const originalText = buyButton.innerHTML;
+            buyButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Demo...';
+            buyButton.disabled = true;
+            
+            setTimeout(() => {
+                if (buyButton) {
+                    buyButton.innerHTML = originalText;
+                    buyButton.disabled = false;
+                }
+            }, 5000);
+        }
+
+        const demoPaymentId = `DEMO_PF${Date.now()}`;
+        
+        // Save order to Firebase
+        if (orderData) {
+            saveOrderToFirebaseFromShop(orderId, orderData, 'COMPLETE', demoPaymentId, orderData.total);
+        }
+
+        // Show success modal after delay
+        setTimeout(() => {
+            showDemoSuccessModal(orderId, 'COMPLETE', demoPaymentId, orderData);
+        }, 2000);
+    }
+
+    function showDemoPaymentConfirmation(order, callback) {
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 20px;
+        `;
+        
+        modal.innerHTML = `
+            <div style="
+                background: white;
+                padding: 30px;
+                border-radius: 15px;
+                max-width: 600px;
+                width: 100%;
+                text-align: center;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+                max-height: 90vh;
+                overflow-y: auto;
+            ">
+                <h3 style="color: #4caf50; margin-bottom: 20px; font-size: 1.5rem;">
+                    <i class="fas fa-play-circle"></i> Demo Mode Active
+                </h3>
+                <div style="
+                    background: #e3f2fd;
+                    padding: 20px;
+                    border-radius: 10px;
+                    margin: 20px 0;
+                    text-align: left;
+                    border-left: 4px solid #2196f3;
+                ">
+                    <h4 style="color: #1565c0; margin-bottom: 15px;">
+                        <i class="fas fa-info-circle"></i> Demo Purchase Preview
+                    </h4>
+                    <p style="margin-bottom: 10px; color: #1976d2;">
+                        This is a demonstration of what happens after a successful purchase. 
+                        No actual payment will be processed.
+                    </p>
+                </div>
+                <div style="
+                    background: #f8f9fa;
+                    padding: 20px;
+                    border-radius: 10px;
+                    margin: 20px 0;
+                    text-align: left;
+                ">
+                    <h4 style="color: #2e7d32; margin-bottom: 15px;">Order Summary:</h4>
+                    <p><strong>Order ID:</strong> ${order.orderId}</p>
+                    <p><strong>Items:</strong> ${order.items.length}</p>
+                    <p><strong>Total:</strong> R${order.total.toFixed(2)}</p>
+                    <div style="margin-top: 15px; max-height: 200px; overflow-y: auto;">
+                        ${order.items.map(item => `
+                            <div style="border-bottom: 1px solid #eee; padding: 8px 0;">
+                                <strong>${item.name}</strong><br>
+                                <small>Qty: ${item.quantity} × R${item.price.toFixed(2)} = R${item.total.toFixed(2)}</small>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                <div style="display: flex; gap: 15px; justify-content: center; margin-top: 25px;">
+                    <button id="proceed-demo" style="
+                        background: #4caf50;
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 25px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 16px;
+                    ">
+                        <i class="fas fa-arrow-right"></i> See Success Page
+                    </button>
+                    <button id="cancel-demo" style="
+                        background: #666;
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 25px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 16px;
+                    ">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        modal.querySelector('#proceed-demo').addEventListener('click', () => {
+            document.body.removeChild(modal);
+            callback();
+        });
+        
+        modal.querySelector('#cancel-demo').addEventListener('click', () => {
+            document.body.removeChild(modal);
+            safeStorage.removeItem('completedOrder');
+        });
+    }
+
+    function showDemoSuccessModal(orderId, paymentStatus, paymentId, orderData) {
+        const isComplete = paymentStatus === 'COMPLETE';
+        const statusText = 'Demo Purchase Complete!';
+        const statusIcon = '🎉';
+        
+        const successModal = document.createElement('div');
+        successModal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 2rem;
+        `;
+        
+        let orderSummaryHTML = '';
+        if (orderData && orderData.items && orderData.items.length > 0) {
+            orderSummaryHTML = `
+                <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 10px; margin: 2rem 0; text-align: left;">
+                    <div style="font-weight: 700; color: #2e7d32; margin-bottom: 1rem; font-size: 1.2rem; text-align: center;">
+                        <i class="fas fa-receipt"></i> Order Summary
+                    </div>
+                    ${orderData.items.map(item => `
+                        <div style="display: flex; justify-content: space-between; padding: 0.8rem 0; border-bottom: 1px solid #e0e0e0;">
+                            <div><strong>${item.name}</strong><br><small>Qty: ${item.quantity} × R${item.price.toFixed(2)}</small></div>
+                            <div style="font-weight: 600;">R${(item.price * item.quantity).toFixed(2)}</div>
+                        </div>
+                    `).join('')}
+                    <div style="display: flex; justify-content: space-between; padding: 1rem 0 0; font-weight: 700; font-size: 1.3rem; color: #2e7d32; border-top: 2px solid #2e7d32; margin-top: 1rem;">
+                        <span>Total (Demo):</span><span>R${orderData.total.toFixed(2)}</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        successModal.innerHTML = `
+            <div style="background: white; padding: 3rem 2rem; border-radius: 20px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.2); max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto;">
+                <div style="font-size: 4rem; margin-bottom: 1.5rem;">${statusIcon}</div>
+                <h1 style="font-size: 2.5rem; color: #2e7d32; margin-bottom: 1rem; font-family: 'Lora', serif;">${statusText}</h1>
+                <div style="background: #e3f2fd; padding: 1.5rem; border-radius: 10px; margin: 1.5rem 0; border-left: 4px solid #2196f3;">
+                    <h4 style="color: #1565c0; margin-bottom: 10px;">
+                        <i class="fas fa-info-circle"></i> Demo Mode
+                    </h4>
+                    <p style="color: #1976d2; margin: 0; font-size: 0.95rem;">
+                        This is a demonstration of the post-purchase experience. In a real transaction, 
+                        customers would receive email confirmations and their items would be prepared for shipping.
+                    </p>
+                </div>
+                <p style="color: #666; margin-bottom: 2rem; line-height: 1.6; font-size: 1.1rem;">
+                    This demonstrates the complete purchase flow. Customers would receive order confirmation 
+                    and tracking information via email.
+                </p>
+                <div style="background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 1rem; margin: 1rem 0;">
+                    <strong>Demo Order Reference:</strong>
+                    <div style="font-family: monospace; background: #f5f5f5; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0;">${orderId}</div>
+                    <strong>Demo Payment ID:</strong>
+                    <div style="font-family: monospace; background: #f5f5f5; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0;">${paymentId}</div>
+                </div>
+                ${orderSummaryHTML}
+                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem;">
+                    <a href="index.html" style="padding: 1rem 2rem; background: #4caf50; color: white; text-decoration: none; border-radius: 25px; font-weight: 600;">
+                        <i class="fas fa-home"></i> Back to Home
+                    </a>
+                    <button onclick="continueDemoShopping()" style="padding: 1rem 2rem; background: #e0e0e0; color: #333; border: none; border-radius: 25px; cursor: pointer; font-weight: 600;">
+                        <i class="fas fa-shopping-bag"></i> Continue Shopping
+                    </button>
+                    <a href="care-tips.html" style="padding: 1rem 2rem; background: #e0e0e0; color: #333; text-decoration: none; border-radius: 25px; font-weight: 600;">
+                        <i class="fas fa-leaf"></i> Care Tips
+                    </a>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(successModal);
+        
+        window.continueDemoShopping = function() {
+            successModal.remove();
+            clearCartAndOrderData();
+            if (isShopPage()) {
+                location.reload();
+            } else {
+                window.location.href = 'shop.html';
+            }
+        };
+        
+        setTimeout(() => {
+            clearCartAndOrderData();
+        }, 2000);
+    }
+
+    function saveOrderToFirebaseFromShop(orderId, orderData, paymentStatus, paymentId, amount) {
+        console.log('DEMO MODE: Saving order with delivery info to Firebase:', orderId);
+        
+        if (!firebaseAvailable || !dbAvailable) {
+            console.log('Firebase not available, order will be processed manually');
+            return;
+        }
+        
+        let currentUser = {};
+        try {
+            const userData = safeStorage.getItem('currentUser');
+            currentUser = userData ? JSON.parse(userData) : {};
+        } catch (error) {
+            console.warn('Failed to get current user data:', error);
+            currentUser = {};
+        }
+        
+        // Enhanced order document with delivery information
+        const orderDocument = {
+            orderId: orderId,
+            timestamp: new Date().toISOString(),
+            status: 'completed',
+            paymentMethod: 'demo_payfast',
+            paymentId: paymentId || null,
+            
+            // Enhanced pricing breakdown
+            subtotal: parseFloat(orderData.subtotal) || 0,
+            shippingCost: parseFloat(orderData.deliveryCost) || 0,
+            amount: parseFloat(amount) || (orderData ? orderData.total : 0) || 0,
+            
+            // Order items
+            items: orderData ? orderData.items || [] : [],
+            itemCount: orderData && orderData.items ? orderData.items.length : 0,
+            totalWeight: calculateTotalWeightFromItems(orderData.items || []),
+            
+            // Customer information
+            customerName: currentUser.username || 'Demo Customer',
+            customerEmail: currentUser.email || 'demo@teientamashii.com',
+            customerType: currentUser.id ? 'registered' : 'demo',
+            customerId: currentUser.id || null,
+            
+            // Delivery information
+            deliveryAddress: orderData && orderData.deliveryAddress ? {
+                streetAddress: orderData.deliveryAddress.address || '',
+                city: orderData.deliveryAddress.city || '',
+                province: orderData.deliveryAddress.province || '',
+                postalCode: orderData.deliveryAddress.postalCode || '',
+                fullAddress: formatFullAddress(orderData.deliveryAddress),
+                deliveryZone: determineDeliveryZone(
+                    orderData.deliveryAddress.city || '', 
+                    orderData.deliveryAddress.province || ''
+                ),
+                estimatedDeliveryTime: getEstimatedDeliveryTime(
+                    determineDeliveryZone(
+                        orderData.deliveryAddress.city || '', 
+                        orderData.deliveryAddress.province || ''
+                    )
+                )
+            } : null,
+            
+            // Shipping details
+            shippingDetails: {
+                originAddress: DELIVERY_CONFIG.originAddress,
+                shippingCost: parseFloat(orderData.deliveryCost) || 0,
+                deliveryZone: orderData.deliveryAddress ? determineDeliveryZone(
+                    orderData.deliveryAddress.city || '', 
+                    orderData.deliveryAddress.province || ''
+                ) : null,
+                totalWeight: calculateTotalWeightFromItems(orderData.items || []),
+                estimatedDelivery: orderData.deliveryAddress ? getEstimatedDeliveryTime(
+                    determineDeliveryZone(
+                        orderData.deliveryAddress.city || '', 
+                        orderData.deliveryAddress.province || ''
+                    )
+                ) : null
+            },
+            
+            // Payment gateway details
+            paymentGateway: 'demo_payfast',
+            paymentDetails: {
+                demo_payment_id: paymentId,
+                payment_status: paymentStatus,
+                amount_gross: amount,
+                subtotal_amount: parseFloat(orderData.subtotal) || 0,
+                shipping_amount: parseFloat(orderData.deliveryCost) || 0,
+                processed_at: new Date().toISOString(),
+                demo_mode: true
+            },
+            
+            // Order processing
+            fulfillmentStatus: 'demo',
+            shippingStatus: orderData.deliveryAddress ? 'pending_shipment' : 'no_shipping',
+            notes: 'Demo order - no actual fulfillment required',
+            
+            // Demo metadata
+            source: 'website_demo',
+            userAgent: navigator.userAgent,
+            referrer: document.referrer || null,
+            demoOrder: true,
+            
+            // Additional tracking
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        console.log('Enhanced order document with delivery:', orderDocument);
+        
+        // Save to Firebase
+        db.collection('orders').add(orderDocument)
+            .then((docRef) => {
+                console.log('Order with delivery info saved successfully with ID:', docRef.id);
+            })
+            .catch((error) => {
+                console.error('Error saving order to Firebase:', error);
+                
+                // Try to save to localStorage as backup
+                try {
+                    const savedOrdersData = safeStorage.getItem('savedOrders');
+                    const savedOrders = savedOrdersData ? JSON.parse(savedOrdersData) : [];
+                    savedOrders.push(orderDocument);
+                    safeStorage.setItem('savedOrders', JSON.stringify(savedOrders));
+                    console.log('Order saved to localStorage as backup');
+                } catch (e) {
+                    console.error('Failed to save order to localStorage:', e);
+                }
+            });
+    }
+
+    function clearCartAndOrderData() {
+        safeStorage.removeItem('completedOrder');
+        safeStorage.removeItem('pendingOrder');
+        
+        clearCart(); // This now also clears delivery variables
+        
+        console.log('Cart and order data cleared successfully');
+    }
+
+    function handleDemoReturn() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const isDemoReturn = urlParams.get('demo_success');
+        const orderId = urlParams.get('order');
+        const paymentId = urlParams.get('demo_payment_id');
+        
+        if (isDemoReturn === 'true') {
+            console.log('Demo return detected:', { orderId, paymentId });
+            
+            let orderData = null;
+            try {
+                const completedOrderData = safeStorage.getItem('completedOrder');
+                orderData = completedOrderData ? JSON.parse(completedOrderData) : null;
+            } catch (error) {
+                console.warn('Failed to get completed order:', error);
+            }
+            
+            showDemoSuccessModal(orderId || 'DEMO_ORDER', 'COMPLETE', paymentId || 'DEMO_PAYMENT', orderData);
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
+
+    function initializeDemoPaymentButton() {
+        console.log('Initializing DEMO PayFast button...');
+        
+        const checkButton = setInterval(() => {
+            const buyButton = document.querySelector('.btn-buy');
+            if (buyButton) {
+                console.log('DEMO PayFast button found, attaching event listener...');
+                clearInterval(checkButton);
+                
+                buyButton.replaceWith(buyButton.cloneNode(true));
+                const newBuyButton = document.querySelector('.btn-buy');
+                
+                newBuyButton.innerHTML = '<i class="fas fa-play-circle"></i> Demo Checkout';
+                
+                newBuyButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('DEMO PayFast button clicked!');
+                    processDemoPayment();
+                });
+                
+                console.log('DEMO PayFast button event listener attached successfully');
+            }
+        }, 100);
+        
+        setTimeout(() => clearInterval(checkButton), 10000);
+    }
+
+    console.log('DOM loaded, initializing DEMO PayFast...');
     
-    console.log('Initializing Cart Maintenance Mode...');
+    initializeDemoPaymentButton();
     
-    initializeMaintenanceMode();
-    
+    if (window.location.pathname.includes('shop.html')) {
+        handleDemoReturn();
+    }
+
     if (window.location.pathname.includes('care-tips.html')) {
         loadCareTipsPage();
     } else if (window.location.pathname.includes('courses.html')) {
@@ -1753,6 +2440,12 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('Failed to load current user:', error);
     }
 
-    console.log('🛠️ CART MAINTENANCE MODE ACTIVE - Cart working, purchasing disabled');
-    console.log('Complete scripts-firebase.js loaded successfully with Cart Test Mode');
+    console.log('Complete FIXED scripts-firebase.js loaded successfully with AGE + WEIGHT SYSTEM, DEMO PayFast integration, PERSISTENT CART, and DELIVERY CALCULATOR');
+
+    // Initialize delivery when cart items are loaded
+    setTimeout(() => {
+        if (cartItems.length > 0) {
+            addDeliverySection();
+        }
+    }, 1500);
 });
