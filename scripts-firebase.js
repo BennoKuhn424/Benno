@@ -2447,4 +2447,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, 1000);
     });
+
+    function attachCartBuyButtonHandler() {
+        const buyButton = document.querySelector('.btn-buy');
+        if (buyButton) {
+            buyButton.onclick = function(e) {
+                e.preventDefault();
+                // Option 1: Just open the PayFast test page
+                window.open('payfast-test.html', '_blank');
+                
+                // Option 2: If you want to pass cart total, use:
+                // const total = calculateCartTotal(); // implement this if needed
+                // window.open(`payfast-test.html?amount=${encodeURIComponent(total)}`, '_blank');
+            };
+        }
+    }
+
+    // Call this after rendering the cart and buy button
+    attachCartBuyButtonHandler();
 });
