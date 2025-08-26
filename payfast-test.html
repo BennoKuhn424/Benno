@@ -175,8 +175,9 @@
 
         // FIXED: Generate PayFast signature (spaces as %20, only non-empty fields, alphabetical order, no signature field)
         function generatePayFastSignature(data, passphrase = '') {
+            // Only include non-empty fields (except signature), sorted alphabetically
             const keys = Object.keys(data)
-                .filter(key => data[key] !== '' && data[key] !== undefined && data[key] !== null && key !== 'signature')
+                .filter(key => key !== 'signature' && data[key] !== undefined && data[key] !== null && data[key] !== '')
                 .sort();
             let pfString = keys
                 .map(key => key + '=' + encodeURIComponent(data[key]))
@@ -198,26 +199,32 @@
             const deliveryCost = delivery && delivery.cost ? parseFloat(delivery.cost) : 0;
             const total = itemsTotal + deliveryCost;
 
-            // Prepare PayFast data
-            const paymentData = {
-                merchant_id: PAYFAST_CONFIG.merchant_id,
-                merchant_key: PAYFAST_CONFIG.merchant_key,
-                amount: total.toFixed(2),
-                item_name: itemNames.slice(0, 100), // PayFast limit
-                item_description: itemDescription.slice(0, 255),
-                return_url: `${window.location.origin}/success.html`,
-                cancel_url: `${window.location.origin}/payfast-test.html?cancelled=true`,
-                notify_url: `${window.location.origin}/payfast-notify.php`,
-                name_first: "Customer",
-                name_last: "Checkout",
-                email_address: "test@example.com",
-                m_payment_id: `ORDER_${Date.now()}`
-            };
+            // Prepare PayFast data (only non-empty fields)
+            const paymentData = {};
+            paymentData.merchant_id = PAYFAST_CONFIG.merchant_id;
+            paymentData.merchant_key = PAYFAST_CONFIG.merchant_key;
+            paymentData.amount = total.toFixed(2);
+            paymentData.item_name = itemNames.slice(0, 100);
+            paymentData.item_description = itemDescription.slice(0, 255);
+            paymentData.return_url = `${window.location.origin}/success.html`;
+            paymentData.cancel_url = `${window.location.origin}/payfast-test.html?cancelled=true`;
+            paymentData.notify_url = `${window.location.origin}/payfast-notify.php`;
+            paymentData.name_first = "Customer";
+            paymentData.name_last = "Checkout";
+            paymentData.email_address = "test@example.com";
+            paymentData.m_payment_id = `ORDER_${Date.now()}`;
+
+            // Remove any empty fields (PayFast is strict!)
+            Object.keys(paymentData).forEach(key => {
+                if (paymentData[key] === undefined || paymentData[key] === null || paymentData[key] === '') {
+                    delete paymentData[key];
+                }
+            });
 
             // Generate signature
             paymentData.signature = generatePayFastSignature(paymentData, PAYFAST_CONFIG.passphrase);
 
-            // Create and submit form
+            // Create and submit form (only non-empty fields)
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = PAYFAST_CONFIG.endpoint;
