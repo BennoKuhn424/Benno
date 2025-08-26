@@ -636,19 +636,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function addDeliverySection() {
         const cart = document.querySelector('.cart');
         const totalSection = cart.querySelector('.total');
-        
         if (!cart || !totalSection) return;
-        
-        // Check if delivery section already exists
         if (cart.querySelector('.delivery-section')) return;
-        
+
         const deliverySection = document.createElement('div');
         deliverySection.className = 'delivery-section';
         deliverySection.innerHTML = `
             <div class="delivery-header">
                 <h3><i class="fas fa-truck"></i> Delivery Information</h3>
             </div>
-            
             <div class="delivery-form">
                 <div class="address-input-group">
                     <label for="delivery-address">Delivery Address:</label>
@@ -657,308 +653,43 @@ document.addEventListener('DOMContentLoaded', () => {
                     <input type="text" id="delivery-province" placeholder="Province">
                     <input type="text" id="delivery-postal" placeholder="Postal Code">
                 </div>
-                
-                <button type="button" id="calculate-delivery" class="calculate-btn">
-                    <i class="fas fa-calculator"></i> Calculate Delivery
+                <button type="button" id="save-delivery-address" class="calculate-btn">
+                    <i class="fas fa-save"></i> Save Delivery Address
                 </button>
-                
-                <div class="delivery-results" id="delivery-results" style="display: none;">
-                    <div class="delivery-info">
-                        <div class="weight-info">
-                            <span class="label">Total Weight:</span>
-                            <span class="value" id="total-weight">0kg</span>
-                        </div>
-                        <div class="delivery-zone">
-                            <span class="label">Delivery Zone:</span>
-                            <span class="value" id="delivery-zone">-</span>
-                        </div>
-                        <div class="delivery-time">
-                            <span class="label">Estimated Time:</span>
-                            <span class="value" id="delivery-time">-</span>
-                        </div>
-                    </div>
-                    
-                    <div class="delivery-cost">
-                        <span class="delivery-cost-label">Delivery Cost:</span>
-                        <span class="delivery-cost-value" id="delivery-cost-value">R0.00</span>
-                    </div>
-                </div>
-                <div class="shipping-summary" id="shipping-summary" style="display: none; margin-top: 1rem; background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-        <strong>Shipping Details:</strong>
-        <div id="shipping-summary-content" style="font-size: 0.95rem; color: #333;"></div>
-    </div>
-                
-                <div class="delivery-note">
-                    <p><i class="fas fa-info-circle"></i> Delivery from: ${DELIVERY_CONFIG.originAddress}</p>
-                </div>
             </div>
         `;
-        
-        // Insert delivery section before total section
         cart.insertBefore(deliverySection, totalSection);
-        
-        // Update total section structure
-        updateTotalSection();
-        
-        // Set up event listeners
-        setupDeliveryEventListeners();
-    }
 
-    function updateTotalSection() {
-        const totalSection = document.querySelector('.total');
-        if (!totalSection) return;
-        
-        // Check if already updated
-        if (totalSection.querySelector('.subtotal-row')) return;
-        
-        // Restructure total section
-        totalSection.innerHTML = `
-            <div class="cost-breakdown">
-                <div class="subtotal-row">
-                    <span class="subtotal-label">Subtotal:</span>
-                    <span class="subtotal-price" id="subtotal-price">R0.00</span>
-                </div>
-                <div class="delivery-row" id="delivery-cost-row" style="display: none;">
-                    <span class="delivery-label">Delivery:</span>
-                    <span class="delivery-price" id="delivery-price">R0.00</span>
-                </div>
-                <div class="total-row">
-                    <span class="total-title">Total:</span>
-                    <span class="total-price" id="final-total-price">R0.00</span>
-                </div>
-            </div>
-        `;
-    }
+        // Save address to localStorage automatically on input
+        const addressInput = deliverySection.querySelector('#delivery-address');
+        const cityInput = deliverySection.querySelector('#delivery-city');
+        const provinceInput = deliverySection.querySelector('#delivery-province');
+        const postalInput = deliverySection.querySelector('#delivery-postal');
 
-    function setupDeliveryEventListeners() {
-        const calculateBtn = document.getElementById('calculate-delivery');
-        const addressInput = document.getElementById('delivery-address');
-        const cityInput = document.getElementById('delivery-city');
-        
-        if (calculateBtn) {
-            calculateBtn.addEventListener('click', calculateDelivery);
-        }
-        
-        // Auto-calculate when address changes
-        [addressInput, cityInput].forEach(input => {
+        [addressInput, cityInput, provinceInput, postalInput].forEach(input => {
             if (input) {
-                input.addEventListener('blur', () => {
-                    if (addressInput && cityInput && addressInput.value && cityInput.value) {
-                        calculateDelivery();
-                    }
+                input.addEventListener('input', () => {
+                    const deliveryAddress = {
+                        address: addressInput ? addressInput.value.trim() : '',
+                        city: cityInput ? cityInput.value.trim() : '',
+                        province: provinceInput ? provinceInput.value.trim() : '',
+                        postalCode: postalInput ? postalInput.value.trim() : ''
+                    };
+                    localStorage.setItem('deliveryAddress', JSON.stringify(deliveryAddress));
                 });
             }
         });
-    }
-
-    function calculateDelivery() {
-        const addressInput = document.getElementById('delivery-address');
-        const cityInput = document.getElementById('delivery-city');
-        const provinceInput = document.getElementById('delivery-province');
         
-        if (!addressInput || !cityInput) {
-            alert('Please enter at least street address and city.');
-            return;
-        }
-        
-        const address = addressInput.value.trim();
-        const city = cityInput.value.trim();
-        const province = provinceInput ? provinceInput.value.trim() : '';
-        
-        if (!address || !city) {
-            alert('Please enter a complete delivery address.');
-            return;
-        }
-        
-        // Store delivery address
-        deliveryAddress = {
-            address: address,
-            city: city,
-            province: province
-        };
-        
-        // Calculate total weight from cart items
-        const totalWeight = calculateTotalWeight();
-        
-        // Determine delivery zone
-        const zone = determineDeliveryZone(city, province);
-        
-        // Get delivery cost
-        const deliveryCost = getDeliveryCost(totalWeight, zone);
-        
-        // Get estimated delivery time
-        const deliveryTime = getEstimatedDeliveryTime(zone);
-        
-        // Update UI
-        updateDeliveryResults(totalWeight, zone, deliveryCost, deliveryTime);
-        
-        // Update cart totals with delivery
-        currentDeliveryCost = deliveryCost;
-        updateCartTotals();
-        
-        console.log('Delivery calculated:', {
-            totalWeight,
-            zone,
-            deliveryCost,
-            deliveryTime,
-            address: `${address}, ${city}, ${province}`
+        // Optionally, still keep the save button for user feedback
+        const saveBtn = deliverySection.querySelector('#save-delivery-address');
+        saveBtn.addEventListener('click', () => {
+            alert('Delivery address saved! You can now proceed to checkout.');
         });
     }
 
-    function calculateTotalWeight() {
-        let totalWeight = 0;
-        
-        cartItems.forEach(item => {
-            let itemWeight = 0;
-            
-            if (item.weight) {
-                const weightStr = item.weight.toString().toLowerCase();
-                const weightNum = parseFloat(weightStr.replace(/[^\d.]/g, ''));
-                
-                if (weightStr.includes('g') && !weightStr.includes('kg')) {
-                    itemWeight = weightNum / 1000; // Convert grams to kg
-                } else {
-                    itemWeight = weightNum; // Assume kg
-                }
-            } else {
-                itemWeight = 0.5; // Default weight per item
-            }
-            
-            totalWeight += itemWeight * item.quantity;
-        });
-        
-        return Math.round(totalWeight * 100) / 100;
-    }
-
-    function determineDeliveryZone(city, province = '') {
-        const cityLower = city.toLowerCase();
-        const provinceLower = province.toLowerCase();
-        
-        // Check local zone
-        if (DELIVERY_CONFIG.zones.local.some(location => 
-            cityLower.includes(location) || location.includes(cityLower)
-        )) {
-            return 'local';
-        }
-        
-        // Check regional zone
-        if (DELIVERY_CONFIG.zones.regional.some(location => 
-            cityLower.includes(location) || location.includes(cityLower)
-        )) {
-            return 'regional';
-        }
-        
-        // Check if Gauteng province
-        if (provinceLower.includes('gauteng')) {
-            return 'regional';
-        }
-        
-        return 'national';
-    }
-
-    function getDeliveryCost(weight, zone) {
-        const rates = DELIVERY_CONFIG.rates[zone];
-        
-        if (!rates) {
-            console.error('Invalid delivery zone:', zone);
-            return 0;
-        }
-        
-        let weightBand;
-        if (weight <= 1) {
-            weightBand = "0-1";
-        } else if (weight <= 2) {
-            weightBand = "1-2";
-        } else if (weight <= 5) {
-            weightBand = "2-5";
-        } else if (weight <= 10) {
-            weightBand = "5-10";
-        } else if (weight <= 20) {
-            weightBand = "10-20";
-        } else if (weight <= 30) {
-            weightBand = "20-30";
-        } else {
-            weightBand = "30+";
-        }
-        
-        return rates[weightBand] || 0;
-    }
-
-    function getEstimatedDeliveryTime(zone) {
-        const times = {
-            local: "1-2 business days",
-            regional: "2-3 business days", 
-            national: "3-5 business days"
-        };
-        
-        return times[zone] || "3-5 business days";
-    }
-
-    function updateDeliveryResults(weight, zone, cost, time) {
-        const resultsDiv = document.getElementById('delivery-results');
-        const weightElement = document.getElementById('total-weight');
-        const zoneElement = document.getElementById('delivery-zone');
-        const timeElement = document.getElementById('delivery-time');
-        const costElement = document.getElementById('delivery-cost-value');
-        
-        if (resultsDiv) resultsDiv.style.display = 'block';
-        if (weightElement) weightElement.textContent = `${weight}kg`;
-        if (zoneElement) {
-            const zoneText = zone.charAt(0).toUpperCase() + zone.slice(1);
-            zoneElement.textContent = zoneText;
-            zoneElement.className = `value zone-${zone}`;
-        }
-        if (timeElement) timeElement.textContent = time;
-        if (costElement) costElement.textContent = `R${cost.toFixed(2)}`;
-        
-        // Add this:
-        const shippingSummary = document.getElementById('shipping-summary');
-        const shippingSummaryContent = document.getElementById('shipping-summary-content');
-        if (shippingSummary && shippingSummaryContent) {
-            shippingSummary.style.display = 'block';
-            shippingSummaryContent.innerHTML = `
-                <div><strong>Zone:</strong> ${zone.charAt(0).toUpperCase() + zone.slice(1)}</div>
-                <div><strong>Estimated Time:</strong> ${time}</div>
-                <div><strong>Cost:</strong> R${cost.toFixed(2)}</div>
-                <div><strong>Address:</strong> ${formatFullAddress(deliveryAddress)}</div>
-            `;
-        }
-    }
-
-    function calculateTotalWeightFromItems(items) {
-        if (!items || !Array.isArray(items)) return 0;
-        
-        let totalWeight = 0;
-        items.forEach(item => {
-            let itemWeight = 0;
-            
-            if (item.weight) {
-                const weightStr = item.weight.toString().toLowerCase();
-                const weightNum = parseFloat(weightStr.replace(/[^\d.]/g, ''));
-                
-                if (weightStr.includes('g') && !weightStr.includes('kg')) {
-                    itemWeight = weightNum / 1000;
-                } else {
-                    itemWeight = weightNum;
-                }
-            } else {
-                itemWeight = 0.5;
-            }
-            
-            totalWeight += itemWeight * item.quantity;
-        });
-        
-        return Math.round(totalWeight * 100) / 100;
-    }
-
-    function formatFullAddress(address) {
-        if (!address) return '';
-        return `${address.address || ''}, ${address.city || ''}, ${address.province || ''}`.replace(/,\s*,/g, ',').replace(/^,|,$/g, '');
-    }
-
-    // Make functions globally available
-    window.addToCart = addToCart;
-    window.clearCart = clearCart;
+    // Remove all shipping calculation, zone, and estimated time logic from the cart page.
+    // Do not calculate or display shipping cost, zone, or estimated time in the cart.
+    // Only collect and save the address as above.
 
     // ===== DELIVERY FUNCTIONALITY =====
     
@@ -2465,4 +2196,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Call this after rendering the cart and buy button
     attachCartBuyButtonHandler();
+
+    // When user enters address and clicks "Continue" or "Checkout":
+    function saveDeliveryAddress() {
+        const addressInput = document.getElementById('delivery-address');
+        const cityInput = document.getElementById('delivery-city');
+        const provinceInput = document.getElementById('delivery-province');
+        // Add postal code if you use it
+        const postalInput = document.getElementById('delivery-postal');
+
+        const deliveryAddress = {
+            address: addressInput ? addressInput.value.trim() : '',
+            city: cityInput ? cityInput.value.trim() : '',
+            province: provinceInput ? provinceInput.value.trim() : '',
+            postalCode: postalInput ? postalInput.value.trim() : ''
+        };
+        localStorage.setItem('deliveryAddress', JSON.stringify(deliveryAddress));
+    }
+
+    // Call this function when the user confirms their address (before redirecting to payfast-test.html)
+    document.getElementById('your-checkout-button').addEventListener('click', function(e) {
+        saveDeliveryAddress();
+        // Now redirect to payfast-test.html
+        window.location.href = 'payfast-test.html';
+    });
 });
