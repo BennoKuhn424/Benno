@@ -40,6 +40,16 @@
             text-align: right;
             margin-top: 10px;
         }
+        .delivery-info {
+            background: #f9f9f9;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0 10px 0;
+            font-size: 1em;
+        }
+        .delivery-info strong {
+            color: #bc002d;
+        }
         .checkout-btn {
             background: #bc002d;
             color: white;
@@ -77,6 +87,7 @@
             <tbody id="cart-items"></tbody>
         </table>
         <div class="empty-cart" id="empty-cart" style="display:none;">Your cart is empty.</div>
+        <div class="delivery-info" id="delivery-info" style="display:none;"></div>
         <div class="cart-total" id="cart-total"></div>
         <button class="checkout-btn" id="checkout-btn">Checkout with PayFast</button>
     </div>
@@ -101,16 +112,27 @@
             }
         }
 
-        function renderCart(cart) {
+        // Load delivery info from localStorage (example structure)
+        function loadDeliveryInfo() {
+            try {
+                return JSON.parse(localStorage.getItem('deliveryAddress')) || null;
+            } catch {
+                return null;
+            }
+        }
+
+        function renderCart(cart, delivery) {
             const cartItemsTbody = document.getElementById('cart-items');
             const cartTotalDiv = document.getElementById('cart-total');
             const emptyCartDiv = document.getElementById('empty-cart');
+            const deliveryInfoDiv = document.getElementById('delivery-info');
             cartItemsTbody.innerHTML = '';
             let total = 0;
 
             if (cart.length === 0) {
                 emptyCartDiv.style.display = 'block';
                 cartTotalDiv.textContent = '';
+                deliveryInfoDiv.style.display = 'none';
                 document.getElementById('checkout-btn').disabled = true;
                 return;
             } else {
@@ -133,30 +155,48 @@
                 cartItemsTbody.appendChild(tr);
             });
 
-            cartTotalDiv.textContent = `Total: R${total.toFixed(2)}`;
+            // Show delivery info if available
+            let deliveryCost = 0;
+            if (delivery && delivery.cost) {
+                deliveryCost = parseFloat(delivery.cost) || 0;
+                deliveryInfoDiv.style.display = 'block';
+                deliveryInfoDiv.innerHTML = `
+                    <div><strong>Delivery Location:</strong> ${delivery.location || delivery.fullAddress || 'N/A'}</div>
+                    <div><strong>Zone:</strong> ${delivery.zone || delivery.deliveryZone || 'N/A'}</div>
+                    <div><strong>Estimated Time:</strong> ${delivery.estimated || delivery.estimatedDeliveryTime || 'N/A'}</div>
+                    <div><strong>Delivery Cost:</strong> R${deliveryCost.toFixed(2)}</div>
+                `;
+            } else {
+                deliveryInfoDiv.style.display = 'none';
+            }
+
+            cartTotalDiv.textContent = `Total: R${(total + deliveryCost).toFixed(2)}`;
         }
 
-        // Generate PayFast signature
+        // FIXED: Generate PayFast signature (spaces as %20, only non-empty fields, alphabetical order, no signature field)
         function generatePayFastSignature(data, passphrase = '') {
-            const keys = Object.keys(data).sort();
+            const keys = Object.keys(data)
+                .filter(key => data[key] !== '' && data[key] !== undefined && data[key] !== null && key !== 'signature')
+                .sort();
             let pfString = keys
-                .filter(key => data[key] !== '' && key !== 'signature')
-                .map(key => key + '=' + encodeURIComponent(data[key]).replace(/%20/g, '+'))
+                .map(key => key + '=' + encodeURIComponent(data[key]))
                 .join('&');
             if (passphrase) {
-                pfString += '&passphrase=' + encodeURIComponent(passphrase).replace(/%20/g, '+');
+                pfString += '&passphrase=' + encodeURIComponent(passphrase);
             }
             return md5(pfString);
         }
 
         // On checkout, submit to PayFast
-        function checkout(cart) {
+        function checkout(cart, delivery) {
             if (!cart.length) return;
 
             // Prepare item_name and description
             const itemNames = cart.map(item => (item.title || item.name || 'Item') + (item.quantity > 1 ? ` x${item.quantity}` : '')).join(', ');
             const itemDescription = cart.map(item => (item.title || item.name || 'Item')).join(', ');
-            const total = cart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
+            const itemsTotal = cart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
+            const deliveryCost = delivery && delivery.cost ? parseFloat(delivery.cost) : 0;
+            const total = itemsTotal + deliveryCost;
 
             // Prepare PayFast data
             const paymentData = {
@@ -198,10 +238,11 @@
 
         // Main
         const cart = loadCart();
-        renderCart(cart);
+        const delivery = loadDeliveryInfo();
+        renderCart(cart, delivery);
 
         document.getElementById('checkout-btn').onclick = function() {
-            checkout(cart);
+            checkout(cart, delivery);
         };
     </script>
 </body>
