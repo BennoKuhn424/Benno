@@ -683,6 +683,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="delivery-cost-value" id="delivery-cost-value">R0.00</span>
                     </div>
                 </div>
+                <div class="shipping-summary" id="shipping-summary" style="display: none; margin-top: 1rem; background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+        <strong>Shipping Details:</strong>
+        <div id="shipping-summary-content" style="font-size: 0.95rem; color: #333;"></div>
+    </div>
                 
                 <div class="delivery-note">
                     <p><i class="fas fa-info-circle"></i> Delivery from: ${DELIVERY_CONFIG.originAddress}</p>
@@ -906,6 +910,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (timeElement) timeElement.textContent = time;
         if (costElement) costElement.textContent = `R${cost.toFixed(2)}`;
+        
+        // Add this:
+        const shippingSummary = document.getElementById('shipping-summary');
+        const shippingSummaryContent = document.getElementById('shipping-summary-content');
+        if (shippingSummary && shippingSummaryContent) {
+            shippingSummary.style.display = 'block';
+            shippingSummaryContent.innerHTML = `
+                <div><strong>Zone:</strong> ${zone.charAt(0).toUpperCase() + zone.slice(1)}</div>
+                <div><strong>Estimated Time:</strong> ${time}</div>
+                <div><strong>Cost:</strong> R${cost.toFixed(2)}</div>
+                <div><strong>Address:</strong> ${formatFullAddress(deliveryAddress)}</div>
+            `;
+        }
     }
 
     function calculateTotalWeightFromItems(items) {
@@ -1713,7 +1730,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p style="margin: 0 0 1.5rem 0; opacity: 0.9; font-size: 1rem;">
                             Chat with us on WhatsApp to book this course or ask any questions!
                         </p>
-                        <a href="https://wa.me/27824659960?text=Hi%20Teien%20Tamashii,%20I'm%20interested%20in%20the%20${encodeURIComponent(course.title)}%20course.%20Can%20you%20provide%20more%20information%20about%20booking%20and%20schedule?" 
+                        <a href="https://wa.me/27123456789?text=Hi%20Teien%20Tamashii,%20I'm%20interested%20in%20the%20${encodeURIComponent(course.title)}%20course.%20Can%20you%20provide%20more%20information%20about%20booking%20and%20schedule?" 
                            target="_blank"
                            style="
                                display: inline-flex;
@@ -2383,53 +2400,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function initializeDemoPaymentButton() {
-        console.log('Initializing DEMO PayFast button...');
-        
-        const checkButton = setInterval(() => {
-            const buyButton = document.querySelector('.btn-buy');
-            if (buyButton) {
-                console.log('DEMO PayFast button found, attaching event listener...');
-                clearInterval(checkButton);
-                
-                buyButton.replaceWith(buyButton.cloneNode(true));
-                const newBuyButton = document.querySelector('.btn-buy');
-                
-                newBuyButton.innerHTML = '<i class="fas fa-play-circle"></i> Demo Checkout';
-                
-                newBuyButton.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('DEMO PayFast button clicked!');
-                    processDemoPayment();
-                });
-                
-                console.log('DEMO PayFast button event listener attached successfully');
-            }
-        }, 100);
-        
-        setTimeout(() => clearInterval(checkButton), 10000);
-    }
-
-    console.log('DOM loaded, initializing DEMO PayFast...');
-    
-    initializeDemoPaymentButton();
-    
-    if (window.location.pathname.includes('shop.html')) {
-        handleDemoReturn();
-    }
-
-    if (window.location.pathname.includes('care-tips.html')) {
-        loadCareTipsPage();
-    } else if (window.location.pathname.includes('courses.html')) {
-        loadCoursesPage();
-    } else if (isShopPage()) {
-        loadProducts();
-    } else {
-        loadFeaturedProducts();
-        loadFeaturedCourses();
-    }
-
     try {
         const userData = safeStorage.getItem('currentUser');
         const currentUser = userData ? JSON.parse(userData) : null;
@@ -2448,4 +2418,33 @@ document.addEventListener('DOMContentLoaded', () => {
             addDeliverySection();
         }
     }, 1500);
+
+    // Find the cart buy/checkout button and make it trigger the PayFast demo checkout
+    document.addEventListener('DOMContentLoaded', () => {
+        // Add this block at the end of your DOMContentLoaded handler, after all cart logic:
+        setTimeout(() => {
+            // Find the buy/checkout button in the cart (adjust selector if needed)
+            let buyButton = document.querySelector('.btn-buy');
+            if (!buyButton) {
+                // If not present, create it at the end of the cart if cart exists
+                const cart = document.querySelector('.cart');
+                if (cart) {
+                    const totalSection = cart.querySelector('.total');
+                    if (totalSection && !cart.querySelector('.btn-buy')) {
+                        buyButton = document.createElement('button');
+                        buyButton.className = 'btn-buy';
+                        buyButton.innerHTML = '<i class="fas fa-credit-card"></i> Checkout (PayFast Demo)';
+                        buyButton.style = 'width:100%;margin-top:1.5rem;padding:1rem 0;font-size:1.2rem;background:var(--primary-color);color:white;border:none;border-radius:30px;font-weight:700;cursor:pointer;';
+                        totalSection.appendChild(buyButton);
+                    }
+                }
+            }
+            if (buyButton) {
+                buyButton.onclick = function(e) {
+                    e.preventDefault();
+                    processDemoPayment(); // This is your PayFast demo checkout function
+                };
+            }
+        }, 1000);
+    });
 });

@@ -1552,7 +1552,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </div>
                                 <div class="stat-item">
                                     <span class="stat-label">Total Weight:</span>
-                                    <span class="stat-value">${order.totalWeight || 0}kg</span>
+                                    <span class="stat-value">${order.shippingDetails?.totalWeight || order.totalWeight || 0}kg</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Shipping Cost:</span>
+                                    <span class="stat-value">R${order.shippingDetails?.shippingCost?.toFixed(2) || order.shippingCost?.toFixed(2) || '0.00'}</span>
                                 </div>
                             </div>
                         </div>
