@@ -75,16 +75,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     tabButtons.forEach(button => {
         button.addEventListener('click', () => {
-            // Remove active class from all tabs and content
+            // Remove active from all
             tabButtons.forEach(btn => btn.classList.remove('active'));
             tabContents.forEach(content => content.classList.remove('active'));
-            
-            // Add active class to clicked tab and corresponding content
+
+            // Add active to clicked
             button.classList.add('active');
             const tabId = button.getAttribute('data-tab');
-            document.getElementById(`${tabId}-tab`).classList.add('active');
-            
-            // Load data based on tab
+            const tabContent = document.getElementById(`${tabId}-tab`);
+            if (tabContent) tabContent.classList.add('active');
+
+            // Load data if needed
             if (tabId === 'orders') {
                 loadOrdersData();
             } else if (tabId === 'gallery') {
