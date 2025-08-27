@@ -189,8 +189,9 @@
 
         // Generate PayFast signature
         function generatePayFastSignature(data, passphrase = '') {
+            // Only include non-empty fields, sorted alphabetically, and matching the POST
             const keys = Object.keys(data)
-                .filter(key => key !== 'signature' && data[key] !== undefined && data[key] !== null && data[key] !== '')
+                .filter(key => data[key] !== undefined && data[key] !== null && data[key] !== '')
                 .sort();
             let pfString = keys
                 .map(key => key + '=' + encodeURIComponent(data[key]))
@@ -242,7 +243,7 @@
                 }
             });
 
-            // Generate signature
+            // Generate signature using the exact same fields as POST
             paymentData.signature = generatePayFastSignature(paymentData, PAYFAST_CONFIG.passphrase);
 
             // Debug: log the form data
