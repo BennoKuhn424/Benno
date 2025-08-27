@@ -79,9 +79,9 @@
             window.opener = null;
         }
 
-        // --- Firebase Setup (copied from your other files) ---
+        // --- Firebase Setup (using your provided API key) ---
         const firebaseConfig = {
-            apiKey: "AIzaSyBvQw1vKQw1vKQw1vKQw1vKQw1vKQw1vKQ",
+            apiKey: "AIzaSyCjA2u__EfEtTbWCISNFq-YtdH4iAmpZ6w",
             authDomain: "bonsai-website.firebaseapp.com",
             projectId: "bonsai-website",
             storageBucket: "bonsai-website.appspot.com",
@@ -147,6 +147,7 @@
             } catch (e) {
                 // Optionally show error to admin
                 console.error('Order save failed:', e);
+                document.getElementById('order-details').innerHTML += `<div style="color:#ffbaba;background:#d8000c;padding:10px;border-radius:8px;margin-top:10px;">Order could not be saved: ${e.message}</div>`;
             }
         }
         storeOrder();
