@@ -228,6 +228,7 @@
             // Prepare PayFast data (only non-empty fields)
             const paymentData = {};
             paymentData.merchant_id = PAYFAST_CONFIG.merchant_id;
+            // ADD THIS LINE for sandbox:
             paymentData.merchant_key = PAYFAST_CONFIG.merchant_key;
             paymentData.amount = total.toFixed(2);
             paymentData.item_name = itemNames.slice(0, 100);
@@ -276,4 +277,3 @@
     </script>
 </body>
 </html>
-
