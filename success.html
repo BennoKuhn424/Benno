@@ -136,6 +136,10 @@
                 document.getElementById('order-details').innerHTML += `<div style="color:#ffbaba;background:#d8000c;padding:10px;border-radius:8px;margin-top:10px;">No cart data found, order not saved.</div>`;
                 return;
             }
+            // Remove undefined/null fields from delivery
+            Object.keys(delivery).forEach(key => {
+                if (delivery[key] === undefined || delivery[key] === null) delete delivery[key];
+            });
             try {
                 await db.collection('orders').add({
                     orderId: orderId || `ORDER_${Date.now()}`,
