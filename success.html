@@ -131,7 +131,11 @@
 
         // --- Store order in Firestore (admin orders) ---
         async function storeOrder() {
-            if (!cart.length) return;
+            if (!cart.length) {
+                console.error('No cart data found, order not saved.');
+                document.getElementById('order-details').innerHTML += `<div style="color:#ffbaba;background:#d8000c;padding:10px;border-radius:8px;margin-top:10px;">No cart data found, order not saved.</div>`;
+                return;
+            }
             try {
                 await db.collection('orders').add({
                     orderId: orderId || `ORDER_${Date.now()}`,
@@ -142,10 +146,9 @@
                     delivery: delivery,
                     created: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                // Optionally clear cart after storing
                 localStorage.removeItem('cartItems');
+                document.getElementById('order-details').innerHTML += `<div style="color:#4caf50;background:#e8f5e9;padding:10px;border-radius:8px;margin-top:10px;">Order saved successfully!</div>`;
             } catch (e) {
-                // Optionally show error to admin
                 console.error('Order save failed:', e);
                 document.getElementById('order-details').innerHTML += `<div style="color:#ffbaba;background:#d8000c;padding:10px;border-radius:8px;margin-top:10px;">Order could not be saved: ${e.message}</div>`;
             }
