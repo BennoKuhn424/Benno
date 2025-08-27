@@ -221,7 +221,7 @@
             const total = itemsTotal + deliveryCost;
 
             // Prepare PayFast data (only non-empty fields)
-            const paymentData = {
+            let paymentData = {
                 merchant_id: PAYFAST_CONFIG.merchant_id,
                 merchant_key: PAYFAST_CONFIG.merchant_key, // Required for sandbox
                 amount: total.toFixed(2),
@@ -243,23 +243,25 @@
                 }
             });
 
+            // Sort keys alphabetically for signature and POST
+            const sortedKeys = Object.keys(paymentData).sort();
+            let sortedData = {};
+            sortedKeys.forEach(key => { sortedData[key] = paymentData[key]; });
+
             // Generate signature using the exact same fields as POST
-            paymentData.signature = generatePayFastSignature(paymentData, PAYFAST_CONFIG.passphrase);
+            sortedData.signature = generatePayFastSignature(sortedData, PAYFAST_CONFIG.passphrase);
 
-            // Debug: log the form data
-            // console.log('PayFast form data:', paymentData);
-
-            // Create and submit form (only non-empty fields)
+            // Create and submit form (only non-empty fields, sorted)
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = PAYFAST_CONFIG.endpoint;
             form.target = '_blank';
 
-            Object.keys(paymentData).forEach(key => {
+            Object.keys(sortedData).forEach(key => {
                 const input = document.createElement('input');
                 input.type = 'hidden';
                 input.name = key;
-                input.value = paymentData[key];
+                input.value = sortedData[key];
                 form.appendChild(input);
             });
 
