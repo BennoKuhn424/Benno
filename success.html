@@ -74,6 +74,11 @@
         <a href="shop.html" class="manual-link">Back to Shop</a>
     </div>
     <script>
+        // Prevent window from closing itself if opened as a popup
+        if (window.opener && !window.opener.closed) {
+            window.opener = null;
+        }
+
         // --- Firebase Setup (copied from your other files) ---
         const firebaseConfig = {
             apiKey: "AIzaSyBvQw1vKQw1vKQw1vKQw1vKQw1vKQw1vKQ",
