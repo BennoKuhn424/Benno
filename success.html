@@ -136,20 +136,36 @@
                 document.getElementById('order-details').innerHTML += `<div style="color:#ffbaba;background:#d8000c;padding:10px;border-radius:8px;margin-top:10px;">No cart data found, order not saved.</div>`;
                 return;
             }
-            // Remove undefined/null fields from delivery
-            Object.keys(delivery).forEach(key => {
-                if (delivery[key] === undefined || delivery[key] === null) delete delivery[key];
-            });
             try {
-                await db.collection('orders').add({
+                // Remove undefined/null from cart items
+                const cleanCart = cart.map(item => {
+                    const cleanItem = {};
+                    Object.keys(item).forEach(key => {
+                        if (item[key] !== undefined && item[key] !== null) cleanItem[key] = item[key];
+                    });
+                    return cleanItem;
+                });
+
+                // Remove undefined/null from delivery
+                Object.keys(delivery).forEach(key => {
+                    if (delivery[key] === undefined || delivery[key] === null) delete delivery[key];
+                });
+
+                // Remove undefined/null from order object
+                const orderData = {
                     orderId: orderId || `ORDER_${Date.now()}`,
                     paymentId: paymentId,
                     paymentStatus: paymentStatus,
                     amount: amount,
-                    cart: cart,
+                    cart: cleanCart,
                     delivery: delivery,
                     created: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                Object.keys(orderData).forEach(key => {
+                    if (orderData[key] === undefined || orderData[key] === null) delete orderData[key];
                 });
+
+                await db.collection('orders').add(orderData);
                 localStorage.removeItem('cartItems');
                 document.getElementById('order-details').innerHTML += `<div style="color:#4caf50;background:#e8f5e9;padding:10px;border-radius:8px;margin-top:10px;">Order saved successfully!</div>`;
             } catch (e) {
