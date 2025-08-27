@@ -270,13 +270,48 @@
             document.body.removeChild(form);
         }
 
+        function submitSimplePayFastForm(cart, delivery) {
+            if (!cart.length) return;
+
+            // Calculate totals
+            const itemNames = cart.map(item => (item.title || item.name || 'Item') + (item.quantity > 1 ? ` x${item.quantity}` : '')).join(', ');
+            const itemsTotal = cart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
+
+            // Calculate shipping
+            let deliveryCost = 0;
+            if (delivery) {
+                const totalWeight = calculateTotalWeight(cart);
+                const zone = determineDeliveryZone(delivery.city, delivery.province);
+                deliveryCost = getDeliveryCost(totalWeight, zone);
+            }
+            const total = itemsTotal + deliveryCost;
+
+            // Build and submit the form
+            const form = document.createElement('form');
+            form.action = "https://sandbox.payfast.co.za/eng/process";
+            form.method = "post";
+            form.target = "_blank";
+
+            // Required for sandbox
+            form.innerHTML = `
+                <input type="hidden" name="merchant_id" value="10000100">
+                <input type="hidden" name="merchant_key" value="46f0cd694581a">
+                <input type="hidden" name="amount" value="${total.toFixed(2)}">
+                <input type="hidden" name="item_name" value="${itemNames.slice(0, 100)}">
+            `;
+
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        }
+
         // --- Main ---
         const cart = loadCart();
         const delivery = loadDeliveryInfo();
         renderCart(cart, delivery);
 
         document.getElementById('checkout-btn').onclick = function() {
-            checkout(cart, delivery);
+            submitSimplePayFastForm(cart, delivery);
         };
     </script>
 </body>
