@@ -179,97 +179,7 @@
             grandTotalDiv.textContent = `Grand Total: R${(total + deliveryCost).toFixed(2)}`;
         }
 
-        // --- PayFast Integration (Sandbox) ---
-        const PAYFAST_CONFIG = {
-            merchant_id: "10000100", // Sandbox merchant_id
-            merchant_key: "46f0cd694581a", // Sandbox merchant_key
-            endpoint: "https://sandbox.payfast.co.za/eng/process",
-            passphrase: "" // Add your passphrase if you use one
-        };
-
-        // Generate PayFast signature
-        function generatePayFastSignature(data, passphrase = '') {
-            // Only include non-empty fields, sorted alphabetically, and matching the POST
-            const keys = Object.keys(data)
-                .filter(key => data[key] !== undefined && data[key] !== null && data[key] !== '')
-                .sort();
-            let pfString = keys
-                .map(key => key + '=' + encodeURIComponent(data[key]))
-                .join('&');
-            if (passphrase) {
-                pfString += '&passphrase=' + encodeURIComponent(passphrase);
-            }
-            return md5(pfString);
-        }
-
-        function checkout(cart, delivery) {
-            if (!cart.length) return;
-
-            // Prepare item_name and description
-            const itemNames = cart.map(item => (item.title || item.name || 'Item') + (item.quantity > 1 ? ` x${item.quantity}` : '')).join(', ');
-            const itemDescription = cart.map(item => (item.title || item.name || 'Item')).join(', ');
-            const itemsTotal = cart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
-
-            // Calculate shipping
-            let deliveryCost = 0, zone = '', estTime = '';
-            if (delivery) {
-                const totalWeight = calculateTotalWeight(cart);
-                zone = determineDeliveryZone(delivery.city, delivery.province);
-                deliveryCost = getDeliveryCost(totalWeight, zone);
-                estTime = getEstimatedDeliveryTime(zone);
-            }
-            const total = itemsTotal + deliveryCost;
-
-            // Prepare PayFast data (only non-empty fields)
-            let paymentData = {
-                merchant_id: PAYFAST_CONFIG.merchant_id,
-                merchant_key: PAYFAST_CONFIG.merchant_key, // Required for sandbox
-                amount: total.toFixed(2),
-                item_name: itemNames.slice(0, 100),
-                item_description: itemDescription.slice(0, 255),
-                return_url: `${window.location.origin}/success.html`,
-                cancel_url: `${window.location.origin}/payfast-test.html?cancelled=true`,
-                notify_url: `${window.location.origin}/payfast-notify.php`,
-                name_first: "Customer",
-                name_last: "Checkout",
-                email_address: "test@example.com",
-                m_payment_id: `ORDER_${Date.now()}`
-            };
-
-            // Remove any empty fields (PayFast is strict!)
-            Object.keys(paymentData).forEach(key => {
-                if (paymentData[key] === undefined || paymentData[key] === null || paymentData[key] === '') {
-                    delete paymentData[key];
-                }
-            });
-
-            // Sort keys alphabetically for signature and POST
-            const sortedKeys = Object.keys(paymentData).sort();
-            let sortedData = {};
-            sortedKeys.forEach(key => { sortedData[key] = paymentData[key]; });
-
-            // Generate signature using the exact same fields as POST
-            sortedData.signature = generatePayFastSignature(sortedData, PAYFAST_CONFIG.passphrase);
-
-            // Create and submit form (only non-empty fields, sorted)
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = PAYFAST_CONFIG.endpoint;
-            form.target = '_blank';
-
-            Object.keys(sortedData).forEach(key => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = key;
-                input.value = sortedData[key];
-                form.appendChild(input);
-            });
-
-            document.body.appendChild(form);
-            form.submit();
-            document.body.removeChild(form);
-        }
-
+        // --- Simple PayFast Form Submission (Sandbox) ---
         function submitSimplePayFastForm(cart, delivery) {
             if (!cart.length) return;
 
@@ -286,19 +196,20 @@
             }
             const total = itemsTotal + deliveryCost;
 
-            // Build and submit the form
+            // Build and submit the form (sandbox)
             const form = document.createElement('form');
             form.action = "https://sandbox.payfast.co.za/eng/process";
             form.method = "post";
             form.target = "_blank";
 
-            // Required for sandbox
             form.innerHTML = `
                 <input type="hidden" name="merchant_id" value="10000100">
                 <input type="hidden" name="merchant_key" value="46f0cd694581a">
                 <input type="hidden" name="amount" value="${total.toFixed(2)}">
                 <input type="hidden" name="item_name" value="${itemNames.slice(0, 100)}">
-            `;
+                <input type="hidden" name="return_url" value="https://teientamashii.co.za/success.html">
+                <input type="hidden" name="cancel_url" value="https://teientamashii.co.za/cancel.html">
+                `;
 
             document.body.appendChild(form);
             form.submit();
