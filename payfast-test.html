@@ -70,7 +70,7 @@
                 } else {
                     itemWeight = 0.5;
                 }
-                totalWeight += itemWeight * item.quantity;
+                totalWeight += itemWeight * (item.quantity || 1);
             });
             return Math.round(totalWeight * 100) / 100;
         }
@@ -179,21 +179,15 @@
             grandTotalDiv.textContent = `Grand Total: R${(total + deliveryCost).toFixed(2)}`;
         }
 
-        // --- Main ---
-        const cart = loadCart();
-        const delivery = loadDeliveryInfo();
-        renderCart(cart, delivery);
-
-        // --- PayFast integration (unchanged) ---
-        // PayFast Configuration (replace with your real merchant_key if needed)
+        // --- PayFast Integration (Sandbox) ---
         const PAYFAST_CONFIG = {
-            merchant_id: "10000100",
-            merchant_key: "46f0cd694581a",
+            merchant_id: "10000100", // Sandbox merchant_id
+            merchant_key: "46f0cd694581a", // Sandbox merchant_key
             endpoint: "https://sandbox.payfast.co.za/eng/process",
-            passphrase: ""
+            passphrase: "" // Add your passphrase if you use one
         };
 
-        // Signature generation as per PayFast docs
+        // Generate PayFast signature
         function generatePayFastSignature(data, passphrase = '') {
             const keys = Object.keys(data)
                 .filter(key => key !== 'signature' && data[key] !== undefined && data[key] !== null && data[key] !== '')
@@ -226,20 +220,20 @@
             const total = itemsTotal + deliveryCost;
 
             // Prepare PayFast data (only non-empty fields)
-            const paymentData = {};
-            paymentData.merchant_id = PAYFAST_CONFIG.merchant_id;
-            // ADD THIS LINE for sandbox:
-            paymentData.merchant_key = PAYFAST_CONFIG.merchant_key;
-            paymentData.amount = total.toFixed(2);
-            paymentData.item_name = itemNames.slice(0, 100);
-            paymentData.item_description = itemDescription.slice(0, 255);
-            paymentData.return_url = `${window.location.origin}/success.html`;
-            paymentData.cancel_url = `${window.location.origin}/payfast-test.html?cancelled=true`;
-            paymentData.notify_url = `${window.location.origin}/payfast-notify.php`;
-            paymentData.name_first = "Customer";
-            paymentData.name_last = "Checkout";
-            paymentData.email_address = "test@example.com";
-            paymentData.m_payment_id = `ORDER_${Date.now()}`;
+            const paymentData = {
+                merchant_id: PAYFAST_CONFIG.merchant_id,
+                merchant_key: PAYFAST_CONFIG.merchant_key, // Required for sandbox
+                amount: total.toFixed(2),
+                item_name: itemNames.slice(0, 100),
+                item_description: itemDescription.slice(0, 255),
+                return_url: `${window.location.origin}/success.html`,
+                cancel_url: `${window.location.origin}/payfast-test.html?cancelled=true`,
+                notify_url: `${window.location.origin}/payfast-notify.php`,
+                name_first: "Customer",
+                name_last: "Checkout",
+                email_address: "test@example.com",
+                m_payment_id: `ORDER_${Date.now()}`
+            };
 
             // Remove any empty fields (PayFast is strict!)
             Object.keys(paymentData).forEach(key => {
@@ -250,6 +244,9 @@
 
             // Generate signature
             paymentData.signature = generatePayFastSignature(paymentData, PAYFAST_CONFIG.passphrase);
+
+            // Debug: log the form data
+            // console.log('PayFast form data:', paymentData);
 
             // Create and submit form (only non-empty fields)
             const form = document.createElement('form');
@@ -270,7 +267,11 @@
             document.body.removeChild(form);
         }
 
-        // Attach to button
+        // --- Main ---
+        const cart = loadCart();
+        const delivery = loadDeliveryInfo();
+        renderCart(cart, delivery);
+
         document.getElementById('checkout-btn').onclick = function() {
             checkout(cart, delivery);
         };
