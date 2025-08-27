@@ -188,9 +188,9 @@
         // PayFast Configuration (replace with your real merchant_key if needed)
         const PAYFAST_CONFIG = {
             merchant_id: "10000100",
-            merchant_key: "46f0cd694581a", // Replace with your real merchant_key for production
+            merchant_key: "46f0cd694581a",
             endpoint: "https://sandbox.payfast.co.za/eng/process",
-            passphrase: "" // Add your passphrase if you use one in PayFast dashboard, else leave blank
+            passphrase: ""
         };
 
         // Signature generation as per PayFast docs
@@ -228,7 +228,6 @@
             // Prepare PayFast data (only non-empty fields)
             const paymentData = {};
             paymentData.merchant_id = PAYFAST_CONFIG.merchant_id;
-            paymentData.merchant_key = PAYFAST_CONFIG.merchant_key;
             paymentData.amount = total.toFixed(2);
             paymentData.item_name = itemNames.slice(0, 100);
             paymentData.item_description = itemDescription.slice(0, 255);
@@ -276,5 +275,3 @@
     </script>
 </body>
 </html>
-
-
