@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gallery - Teien Tamashii</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Lora:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- CSS imports matching index structure -->
+    <link rel="stylesheet" href="base.css">
+    <link rel="stylesheet" href="navbar.css">
+    <link rel="stylesheet" href="shop.css">
+    <link rel="stylesheet" href="auth.css">
+    <link rel="stylesheet" href="cart.css">
+    <link rel="stylesheet" href="products.css">
+    
+    <style>
+        /* Gallery Page Specific Styles */
+        .gallery-page {
+            padding-top: 80px;
+            min-height: 100vh;
+            background: var(--background-color);
+        }
+
+        .gallery-header {
+            background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('Fotos/Bonsai-wall.jpg') center/cover;
+            color: white;
+            padding: 4rem 1rem;
+            text-align: center;
+        }
+
+        .gallery-header h1 {
+            font-family: 'Lora', serif;
+            font-size: 2.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .gallery-header p {
+            font-size: 1.2rem;
+            color: #eee;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .gallery-content {
+            padding: 2rem 1rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .gallery-filters {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .gallery-filter-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .gallery-filter-btn {
+            padding: 0.7rem 1.5rem;
+            background: var(--background-color);
+            border: 2px solid var(--border-color);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .gallery-filter-btn.active,
+        .gallery-filter-btn:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(46, 125, 50, 0.3);
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .gallery-item {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .gallery-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .gallery-item:hover img {
+            transform: scale(1.05);
+        }
+
+        .gallery-item-info {
+            padding: 1.5rem;
+        }
+
+        .gallery-item h3 {
+            font-family: 'Lora', serif;
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+            color: var(--black-color);
+        }
+
+        .gallery-item p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .gallery-item-category {
+            display: inline-block;
+            background: var(--primary-color);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .gallery-item-date {
+            color: #999;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Gallery Modal Styles */
+        .gallery-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 2rem;
+        }
+
+        .gallery-modal.active {
+            display: flex;
+        }
+
+        .gallery-modal-content {
+            background: white;
+            border-radius: 15px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .gallery-modal-image {
+            width: 100%;
+            height: 400px;
+            object-fit: cover;
+        }
+
+        .gallery-modal-info {
+            padding: 2rem;
+        }
+
+        .gallery-modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.3s;
+        }
+
+        .gallery-modal-close:hover {
+            background: rgba(0, 0, 0, 0.9);
+            transform: rotate(90deg);
+        }
+
+        .loading-gallery {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        .loading-gallery i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+            color: var(--primary-color);
+            animation: spin 1s linear infinite;
+        }
+
+        .empty-gallery {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        .empty-gallery i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+            color: var(--border-color);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .gallery-header h1 {
+                font-size: 2rem;
+            }
+
+            .gallery-grid {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 1.5rem;
+            }
+
+            .gallery-item-info {
+                padding: 1rem;
+            }
+
+            .gallery-modal {
+                padding: 1rem;
+            }
+
+            .gallery-modal-info {
+                padding: 1.5rem;
+            }
+
+            .gallery-filter-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .gallery-filter-btn {
+                width: 100%;
+                max-width: 200px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .gallery-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="navbar">
+    <div class="logo">
+        <img src="Fotos/Logo.jpeg" alt="Teien Tamashii Logo">
+        <h1>Teien Tamashii</h1>
+    </div>
+    <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="care-tips.html">Care Tips</a></li>
+        <li><a href="courses.html">Courses</a></li>
+        <li><a href="index.html#types">Bonsai Types</a></li>
+        <li><a href="shop.html">Shop</a></li>
+        <li><a href="gallery.html" class="active">Gallery</a></li>
+        <li><a href="index.html#contact">Contact</a></li>
+        <li id="admin-link" style="display: none;"><a href="admin.html" id="admin-page-link">Go to Admin</a></li>
+        <li id="auth-link"><a href="#login" id="login-link">Login</a></li>
+    </ul>
+    <div class="cart-icon" id="cart-icon">
+        <i class="fas fa-shopping-cart"></i>
+        <span class="cart-item-count"></span>
+    </div>
+    <div class="burger">
+        <i class="fas fa-bars"></i>
+    </div>
+</nav>
+
+<!-- Gallery Header -->
+<div class="gallery-page">
+    <div class="gallery-header">
+        <h1>Our Gallery</h1>
+        <p>庭園魂 - Explore our workspace, team, and the beauty behind Teien Tamashii</p>
+    </div>
+
+    <!-- Gallery Content -->
+    <div class="gallery-content">
+        <!-- Gallery Filters -->
+        <div class="gallery-filters">
+            <div class="gallery-filter-buttons">
+                <button class="gallery-filter-btn active" data-filter="all">All Photos</button>
+                <button class="gallery-filter-btn" data-filter="team">Our Team</button>
+                <button class="gallery-filter-btn" data-filter="workspace">Workspace</button>
+                <button class="gallery-filter-btn" data-filter="environment">Environment</button>
+                <button class="gallery-filter-btn" data-filter="events">Events</button>
+                <button class="gallery-filter-btn" data-filter="process">Process</button>
+                <button class="gallery-filter-btn" data-filter="customers">Happy Customers</button>
+            </div>
+        </div>
+
+        <!-- Gallery Grid -->
+        <div class="gallery-grid" id="gallery-grid">
+            <div class="loading-gallery">
+                <i class="fas fa-spinner"></i>
+                <p>Loading gallery...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gallery Modal -->
+<div class="gallery-modal" id="gallery-modal">
+    <div class="gallery-modal-content">
+        <button class="gallery-modal-close" onclick="closeGalleryModal()">
+            <i class="fas fa-times"></i>
+        </button>
+        <img class="gallery-modal-image" id="modal-image" src="" alt="">
+        <div class="gallery-modal-info">
+            <h3 id="modal-title"></h3>
+            <p id="modal-description"></p>
+            <div>
+                <span class="gallery-item-category" id="modal-category"></span>
+                <div class="gallery-item-date" id="modal-date"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cart -->
+<div class="cart">
+    <h2 class="cart-title">Your Cart</h2>
+    <div class="cart-content"></div>
+    <div class="total">
+        <div class="total-title">Total</div>
+        <div class="total-price">R0</div>
+    </div>
+    
+    <!-- PayFast Payment Security Info -->
+    <div class="payment-security">
+        <div class="security-badge">
+            <i class="fas fa-shield-alt"></i>
+            <span>Secure Payment by PayFast</span>
+        </div>
+        <div style="color: #666; font-size: 0.8rem;">
+            Your payment information is encrypted and secure
+        </div>
+        <div class="payment-methods">
+            <span class="payment-method">💳 Credit Card</span>
+            <span class="payment-method">🏦 EFT</span>
+            <span class="payment-method">⚡ Instant EFT</span>
+            <span class="payment-method">📱 SnapScan</span>
+        </div>
+    </div>
+    
+    <button class="btn-buy">
+        <i class="fas fa-lock"></i> Secure Checkout with PayFast
+    </button>
+    <i class="fas fa-times" id="cart-close"></i>
+</div>
+
+<!-- Login/Register Modal -->
+<div class="auth-modal" id="auth-modal">
+    <div class="auth-content">
+        <h2 id="auth-title">Login</h2>
+        <form id="auth-form">
+            <input type="email" id="email" placeholder="Email" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <input type="text" id="username" placeholder="Username" style="display: none;">
+            <button type="submit" class="cta-btn" id="auth-submit">Login</button>
+            <p id="auth-toggle">Don't have an account? <a href="#" id="toggle-link">Register</a></p>
+        </form>
+        <i class="fas fa-times" id="auth-close"></i>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer>
+    <p>© 2025 Teien Tamashii. All Rights Reserved.</p>
+    <div class="social-links">
+        <a href="#"><i class="fab fa-facebook"></i></a>
+        <a href="#"><i class="fab fa-twitter"></i></a>
+        <a href="#"><i class="fab fa-instagram"></i></a>
+        <a href="#"><i class="fab fa-youtube"></i></a>
+    </div>
+</footer>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+<!-- Initialize Firebase -->
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCjA2u__EfEtTbWCISNFq-YtdH4iAmpZ6w",
+    authDomain: "teien-tamashii.firebaseapp.com",
+    projectId: "teien-tamashii",
+    storageBucket: "teien-tamashii.firebasestorage.app",
+    messagingSenderId: "754182439532",
+    appId: "1:754182439532:web:e478ed437e224a91be4e49",
+    measurementId: "G-0SXMM7NMLD"
+  };
+  
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+</script>
+
+<!-- Gallery JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Gallery page loaded');
+
+    // Gallery data
+    let allGalleryItems = [];
+    let filteredGalleryItems = [];
+
+    // DOM elements
+    const galleryGrid = document.getElementById('gallery-grid');
+    const galleryModal = document.getElementById('gallery-modal');
+    const filterButtons = document.querySelectorAll('.gallery-filter-btn');
+
+    // Load gallery items from Firebase
+    function loadGalleryItems() {
+        console.log('Loading gallery items from Firebase');
+        
+        db.collection('gallery').orderBy('createdAt', 'desc').get()
+            .then((snapshot) => {
+                allGalleryItems = [];
+                
+                if (snapshot.empty) {
+                    displayEmptyGallery();
+                    return;
+                }
+
+                snapshot.forEach(doc => {
+                    allGalleryItems.push({ id: doc.id, ...doc.data() });
+                });
+
+                filteredGalleryItems = [...allGalleryItems];
+                displayGalleryItems(filteredGalleryItems);
+                console.log(`Loaded ${allGalleryItems.length} gallery items`);
+            })
+            .catch(error => {
+                console.error('Error loading gallery items:', error);
+                galleryGrid.innerHTML = `
+                    <div class="empty-gallery">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Error loading gallery. Please try again later.</p>
+                    </div>
+                `;
+            });
+    }
+
+    // Display gallery items
+    function displayGalleryItems(items) {
+        if (items.length === 0) {
+            displayEmptyGallery();
+            return;
+        }
+
+        let galleryHTML = '';
+        items.forEach(item => {
+            const date = new Date(item.createdAt).toLocaleDateString();
+            galleryHTML += `
+                <div class="gallery-item" onclick="openGalleryModal('${item.id}')">
+                    <img src="${item.image}" alt="${item.title}" onerror="this.src='Fotos/Bonsai-wall.jpg'">
+                    <div class="gallery-item-info">
+                        <h3>${item.title}</h3>
+                        <p>${item.description}</p>
+                        <span class="gallery-item-category">${getCategoryDisplayName(item.category)}</span>
+                        <div class="gallery-item-date">Added: ${date}</div>
+                    </div>
+                </div>
+            `;
+        });
+
+        galleryGrid.innerHTML = galleryHTML;
+    }
+
+    // Display empty gallery
+    function displayEmptyGallery() {
+        galleryGrid.innerHTML = `
+            <div class="empty-gallery">
+                <i class="fas fa-images"></i>
+                <p>No photos in the gallery yet. Check back soon!</p>
+            </div>
+        `;
+    }
+
+    // Get category display name
+    function getCategoryDisplayName(category) {
+        const categoryMap = {
+            'team': 'Our Team',
+            'workspace': 'Workspace',
+            'environment': 'Environment',
+            'events': 'Events',
+            'process': 'Process',
+            'customers': 'Happy Customers'
+        };
+        return categoryMap[category] || category.charAt(0).toUpperCase() + category.slice(1);
+    }
+
+    // Filter functionality
+    filterButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            // Remove active class from all buttons
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            // Add active class to clicked button
+            button.classList.add('active');
+
+            const filterCategory = button.getAttribute('data-filter');
+            console.log('Filtering gallery by:', filterCategory);
+
+            if (filterCategory === 'all') {
+                filteredGalleryItems = [...allGalleryItems];
+            } else {
+                filteredGalleryItems = allGalleryItems.filter(item => 
+                    item.category === filterCategory
+                );
+            }
+
+            displayGalleryItems(filteredGalleryItems);
+        });
+    });
+
+    // Open gallery modal
+    window.openGalleryModal = function(itemId) {
+        const item = allGalleryItems.find(i => i.id === itemId);
+        if (!item) return;
+
+        const modalImage = document.getElementById('modal-image');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDescription = document.getElementById('modal-description');
+        const modalCategory = document.getElementById('modal-category');
+        const modalDate = document.getElementById('modal-date');
+
+        modalImage.src = item.image;
+        modalTitle.textContent = item.title;
+        modalDescription.textContent = item.description;
+        modalCategory.textContent = getCategoryDisplayName(item.category);
+        modalDate.textContent = `Added: ${new Date(item.createdAt).toLocaleDateString()}`;
+
+        galleryModal.classList.add('active');
+    };
+
+    // Close gallery modal
+    window.closeGalleryModal = function() {
+        galleryModal.classList.remove('active');
+    };
+
+    // Close modal when clicking outside
+    galleryModal.addEventListener('click', (e) => {
+        if (e.target === galleryModal) {
+            closeGalleryModal();
+        }
+    });
+
+    // Load gallery items on page load
+    loadGalleryItems();
+});
+</script>
+
+<!-- Use the updated Firebase JavaScript file -->
+<script src="scripts-firebase.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PayFast Checkout - Teien Tamashii</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; background: #f5f5f5; }
+        .cart-container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);}
+        .cart-list { margin: 20px 0; border-collapse: collapse; width: 100%; }
+        .cart-list th, .cart-list td { padding: 8px 10px; border-bottom: 1px solid #eee; text-align: left; }
+        .cart-list th { background: #f0f0f0; }
+        .cart-total, .shipping-cost, .grand-total { font-size: 1.1em; font-weight: bold; text-align: right; margin-top: 10px; }
+        .grand-total { font-size: 1.2em; color: #bc002d; }
+        .delivery-info { background: #f9f9f9; border-radius: 6px; padding: 15px; margin: 20px 0 10px 0; font-size: 1em; }
+        .delivery-info strong { color: #bc002d; }
+        .checkout-btn { background: #bc002d; color: white; padding: 15px 30px; border: none; border-radius: 5px; cursor: pointer; font-size: 18px; margin-top: 20px; width: 100%; transition: background 0.3s; }
+        .checkout-btn:hover { background: #8b0000; }
+        .empty-cart { color: #888; text-align: center; margin: 30px 0; }
+    </style>
+</head>
+<body>
+    <div class="cart-container">
+        <h1>Checkout</h1>
+        <table class="cart-list" id="cart-list">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Qty</th>
+                    <th>Price (R)</th>
+                    <th>Subtotal (R)</th>
+                </tr>
+            </thead>
+            <tbody id="cart-items"></tbody>
+        </table>
+        <div class="empty-cart" id="empty-cart" style="display:none;">Your cart is empty.</div>
+        <div class="delivery-info" id="delivery-info" style="display:none;"></div>
+        <div class="cart-total" id="cart-total"></div>
+        <div class="shipping-cost" id="shipping-cost"></div>
+        <div class="grand-total" id="grand-total"></div>
+        <button class="checkout-btn" id="checkout-btn">Checkout with PayFast</button>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
+    <script>
+        // --- Shipping Calculation Logic ---
+        const DELIVERY_CONFIG = {
+            rates: {
+                local: { "0-1": 85, "1-2": 95, "2-5": 120, "5-10": 165, "10-20": 220, "20-30": 285, "30+": 350 },
+                regional: { "0-1": 105, "1-2": 125, "2-5": 155, "5-10": 195, "10-20": 265, "20-30": 340, "30+": 415 },
+                national: { "0-1": 135, "1-2": 165, "2-5": 205, "5-10": 275, "10-20": 365, "20-30": 465, "30+": 565 }
+            },
+            zones: {
+                local: ["pretoria", "tshwane", "centurion", "midrand", "irene", "waverley", "hatfield", "arcadia", "sunnyside", "brooklyn", "menlyn", "garsfontein"],
+                regional: ["johannesburg", "sandton", "randburg", "roodepoort", "soweto", "germiston", "kempton park", "benoni", "boksburg", "alberton", "springs", "nigel", "vanderbijlpark", "vereeniging", "sasolburg", "potchefstroom", "klerksdorp", "rustenburg", "brits"],
+                national: ["cape town", "durban", "port elizabeth", "east london", "bloemfontein", "kimberley", "polokwane", "nelspruit", "witbank", "secunda", "phalaborwa"]
+            }
+        };
+
+        function calculateTotalWeight(items) {
+            let totalWeight = 0;
+            items.forEach(item => {
+                let itemWeight = 0;
+                if (item.weight) {
+                    const weightStr = item.weight.toString().toLowerCase();
+                    const weightNum = parseFloat(weightStr.replace(/[^\d.]/g, ''));
+                    if (weightStr.includes('g') && !weightStr.includes('kg')) {
+                        itemWeight = weightNum / 1000;
+                    } else {
+                        itemWeight = weightNum;
+                    }
+                } else {
+                    itemWeight = 0.5;
+                }
+                totalWeight += itemWeight * (item.quantity || 1);
+            });
+            return Math.round(totalWeight * 100) / 100;
+        }
+
+        function determineDeliveryZone(city, province = '') {
+            const cityLower = (city || '').toLowerCase();
+            const provinceLower = (province || '').toLowerCase();
+            if (DELIVERY_CONFIG.zones.local.some(location => cityLower.includes(location) || location.includes(cityLower))) return 'local';
+            if (DELIVERY_CONFIG.zones.regional.some(location => cityLower.includes(location) || location.includes(cityLower))) return 'regional';
+            if (provinceLower.includes('gauteng')) return 'regional';
+            return 'national';
+        }
+
+        function getDeliveryCost(weight, zone) {
+            const rates = DELIVERY_CONFIG.rates[zone];
+            if (!rates) return 0;
+            let weightBand;
+            if (weight <= 1) weightBand = "0-1";
+            else if (weight <= 2) weightBand = "1-2";
+            else if (weight <= 5) weightBand = "2-5";
+            else if (weight <= 10) weightBand = "5-10";
+            else if (weight <= 20) weightBand = "10-20";
+            else if (weight <= 30) weightBand = "20-30";
+            else weightBand = "30+";
+            return rates[weightBand] || 0;
+        }
+
+        function getEstimatedDeliveryTime(zone) {
+            const times = { local: "1-2 business days", regional: "2-3 business days", national: "3-5 business days" };
+            return times[zone] || "3-5 business days";
+        }
+
+        // --- Load Cart and Address ---
+        function loadCart() {
+            try {
+                const cart = JSON.parse(localStorage.getItem('cartItems')) || [];
+                return Array.isArray(cart) ? cart : [];
+            } catch { return []; }
+        }
+        function loadDeliveryInfo() {
+            try {
+                return JSON.parse(localStorage.getItem('deliveryAddress')) || null;
+            } catch { return null; }
+        }
+
+        // --- Render Cart and Shipping ---
+        function renderCart(cart, delivery) {
+            const cartItemsTbody = document.getElementById('cart-items');
+            const cartTotalDiv = document.getElementById('cart-total');
+            const shippingCostDiv = document.getElementById('shipping-cost');
+            const grandTotalDiv = document.getElementById('grand-total');
+            const emptyCartDiv = document.getElementById('empty-cart');
+            const deliveryInfoDiv = document.getElementById('delivery-info');
+            cartItemsTbody.innerHTML = '';
+            let total = 0;
+
+            if (cart.length === 0) {
+                emptyCartDiv.style.display = 'block';
+                cartTotalDiv.textContent = '';
+                shippingCostDiv.textContent = '';
+                grandTotalDiv.textContent = '';
+                deliveryInfoDiv.style.display = 'none';
+                document.getElementById('checkout-btn').disabled = true;
+                return;
+            } else {
+                emptyCartDiv.style.display = 'none';
+                document.getElementById('checkout-btn').disabled = false;
+            }
+
+            cart.forEach(item => {
+                const qty = item.quantity || 1;
+                const price = parseFloat(item.price || 0);
+                const subtotal = qty * price;
+                total += subtotal;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.title || item.name || 'Item'}</td>
+                    <td>${qty}</td>
+                    <td>${price.toFixed(2)}</td>
+                    <td>${subtotal.toFixed(2)}</td>
+                `;
+                cartItemsTbody.appendChild(tr);
+            });
+
+            // Calculate shipping
+            let deliveryCost = 0, zone = 'N/A', estTime = 'N/A', location = 'N/A';
+            if (delivery) {
+                location = `${delivery.address || ''}, ${delivery.city || ''}, ${delivery.province || ''}`.replace(/,\s*,/g, ',').replace(/^,|,$/g, '');
+                const totalWeight = calculateTotalWeight(cart);
+                zone = determineDeliveryZone(delivery.city, delivery.province);
+                deliveryCost = getDeliveryCost(totalWeight, zone);
+                estTime = getEstimatedDeliveryTime(zone);
+                deliveryInfoDiv.style.display = 'block';
+                deliveryInfoDiv.innerHTML = `
+                    <div><strong>Delivery Location:</strong> ${location}</div>
+                    <div><strong>Zone:</strong> ${zone.charAt(0).toUpperCase() + zone.slice(1)}</div>
+                    <div><strong>Estimated Time:</strong> ${estTime}</div>
+                    <div><strong>Shipping Cost:</strong> R${deliveryCost.toFixed(2)}</div>
+                `;
+            } else {
+                deliveryInfoDiv.style.display = 'none';
+            }
+
+            shippingCostDiv.textContent = `Shipping: R${deliveryCost.toFixed(2)}`;
+            cartTotalDiv.textContent = `Cart Total: R${total.toFixed(2)}`;
+            grandTotalDiv.textContent = `Grand Total: R${(total + deliveryCost).toFixed(2)}`;
+        }
+
+        // --- Simple PayFast Form Submission (Sandbox) ---
+        function submitSimplePayFastForm(cart, delivery) {
+            if (!cart.length) return;
+
+            // Calculate totals
+            const itemNames = cart.map(item => (item.title || item.name || 'Item') + (item.quantity > 1 ? ` x${item.quantity}` : '')).join(', ');
+            const itemsTotal = cart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0);
+
+            // Calculate shipping
+            let deliveryCost = 0;
+            if (delivery) {
+                const totalWeight = calculateTotalWeight(cart);
+                const zone = determineDeliveryZone(delivery.city, delivery.province);
+                deliveryCost = getDeliveryCost(totalWeight, zone);
+            }
+            const total = itemsTotal + deliveryCost;
+
+            // Build and submit the form (sandbox)
+            const form = document.createElement('form');
+            form.action = "https://sandbox.payfast.co.za/eng/process";
+            form.method = "post";
+            form.target = "_blank";
+
+            form.innerHTML = `
+                <input type="hidden" name="merchant_id" value="10000100">
+                <input type="hidden" name="merchant_key" value="46f0cd694581a">
+                <input type="hidden" name="amount" value="${total.toFixed(2)}">
+                <input type="hidden" name="item_name" value="${itemNames.slice(0, 100)}">
+                <input type="hidden" name="return_url" value="https://teientamashii.co.za/success.html">
+                <input type="hidden" name="cancel_url" value="https://teientamashii.co.za/cancel.html">
+                `;
+
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        }
+
+        // --- Main ---
+        const cart = loadCart();
+        const delivery = loadDeliveryInfo();
+        renderCart(cart, delivery);
+
+        document.getElementById('checkout-btn').onclick = function() {
+            submitSimplePayFastForm(cart, delivery);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful - Teien Tamashii</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #4caf50, #2e7d32);
+            color: white;
+            text-align: center;
+        }
+        .success-container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 3rem;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .success-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+        h1 {
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+        p {
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            opacity: 0.95;
+        }
+        .order-details {
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: #fff;
+        }
+        .manual-link {
+            display: inline-block;
+            margin-top: 2rem;
+            padding: 1rem 2rem;
+            background: white;
+            color: #2e7d32;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .manual-link:hover {
+            background: #f0f0f0;
+            transform: translateY(-2px);
+        }
+    </style>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <div class="success-container">
+        <div class="success-icon">✅</div>
+        <h1>Thank You! Your Payment Was Successful</h1>
+        <p>Your order has been received and is being processed.<br>
+        You will receive an email confirmation soon.</p>
+        <div class="order-details" id="order-details"></div>
+        <a href="shop.html" class="manual-link">Back to Shop</a>
+    </div>
+    <script>
+        // Prevent window from closing itself if opened as a popup
+        if (window.opener && !window.opener.closed) {
+            window.opener = null;
+        }
+
+        // --- Firebase Setup (using your provided API key) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCjA2u__EfEtTbWCISNFq-YtdH4iAmpZ6w",
+            authDomain: "bonsai-website.firebaseapp.com",
+            projectId: "bonsai-website",
+            storageBucket: "bonsai-website.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:abcdef123456"
+        };
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+
+        // --- Get PayFast parameters ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const paymentId = urlParams.get('pf_payment_id') || '';
+        const paymentStatus = urlParams.get('payment_status') || 'COMPLETE';
+        const orderId = urlParams.get('m_payment_id') || '';
+        const amount = urlParams.get('amount_gross') || '';
+
+        // --- Get cart and delivery info from localStorage ---
+        let cart = [];
+        let delivery = {};
+        try {
+            cart = JSON.parse(localStorage.getItem('cartItems')) || [];
+            delivery = JSON.parse(localStorage.getItem('deliveryAddress')) || {};
+        } catch {}
+
+        // --- Show order details ---
+        function renderOrderDetails() {
+            const detailsDiv = document.getElementById('order-details');
+            let html = '';
+            if (orderId) html += `<div><strong>Order ID:</strong> ${orderId}</div>`;
+            if (paymentId) html += `<div><strong>Payment Ref:</strong> ${paymentId}</div>`;
+            if (amount) html += `<div><strong>Amount Paid:</strong> R${amount}</div>`;
+            if (delivery && (delivery.address || delivery.city)) {
+                html += `<div><strong>Delivery:</strong> ${delivery.address || ''}, ${delivery.city || ''}, ${delivery.province || ''}</div>`;
+            }
+            if (cart.length) {
+                html += `<div><strong>Items:</strong><ul style="text-align:left;">`;
+                cart.forEach(item => {
+                    html += `<li>${item.title || item.name || 'Item'} x${item.quantity || 1}</li>`;
+                });
+                html += `</ul></div>`;
+            }
+            detailsDiv.innerHTML = html;
+        }
+        renderOrderDetails();
+
+        // --- Store order in Firestore (admin orders) ---
+        async function storeOrder() {
+            if (!cart.length) {
+                console.error('No cart data found, order not saved.');
+                document.getElementById('order-details').innerHTML += `<div style="color:#ffbaba;background:#d8000c;padding:10px;border-radius:8px;margin-top:10px;">No cart data found, order not saved.</div>`;
+                return;
+            }
+            try {
+                // Remove undefined/null from cart items
+                const cleanCart = cart.map(item => {
+                    const cleanItem = {};
+                    Object.keys(item).forEach(key => {
+                        if (item[key] !== undefined && item[key] !== null) cleanItem[key] = item[key];
+                    });
+                    return cleanItem;
+                });
+
+                // Remove undefined/null from delivery
+                Object.keys(delivery).forEach(key => {
+                    if (delivery[key] === undefined || delivery[key] === null) delete delivery[key];
+                });
+
+                // Remove undefined/null from order object
+                const orderData = {
+                    orderId: orderId || `ORDER_${Date.now()}`,
+                    paymentId: paymentId,
+                    paymentStatus: paymentStatus,
+                    amount: amount,
+                    cart: cleanCart,
+                    delivery: delivery,
+                    created: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                Object.keys(orderData).forEach(key => {
+                    if (orderData[key] === undefined || orderData[key] === null) delete orderData[key];
+                });
+
+                await db.collection('orders').add(orderData);
+                localStorage.removeItem('cartItems');
+                document.getElementById('order-details').innerHTML += `<div style="color:#4caf50;background:#e8f5e9;padding:10px;border-radius:8px;margin-top:10px;">Order saved successfully!</div>`;
+            } catch (e) {
+                console.error('Order save failed:', e);
+                document.getElementById('order-details').innerHTML += `<div style="color:#ffbaba;background:#d8000c;padding:10px;border-radius:8px;margin-top:10px;">Order could not be saved: ${e.message}</div>`;
+            }
+        }
+        storeOrder();
+    </script>
+</body>
+</html>

@@ -1,0 +1,2147 @@
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('scripts-firebase.js loaded with FIXED CART PERSISTENCE and DEMO MODE PayFast and AGE + WEIGHT SYSTEM');
+
+    // ===== ENHANCED SAFE STORAGE WRAPPER =====
+    const safeStorage = {
+        getItem: function(key) {
+            try {
+                return localStorage.getItem(key);
+            } catch (error) {
+                console.warn('localStorage not available for reading:', error.message);
+                return null;
+            }
+        },
+        setItem: function(key, value) {
+            try {
+                localStorage.setItem(key, value);
+                return true;
+            } catch (error) {
+                console.warn('localStorage not available for writing:', error.message);
+                return false;
+            }
+        },
+        removeItem: function(key) {
+            try {
+                localStorage.removeItem(key);
+                return true;
+            } catch (error) {
+                console.warn('localStorage not available for removal:', error.message);
+                return false;
+            }
+        }
+    };
+
+    // ===== FIREBASE AVAILABILITY CHECK =====
+    let firebaseAvailable = false;
+    let dbAvailable = false;
+    
+    try {
+        if (typeof firebase !== 'undefined' && typeof db !== 'undefined') {
+            firebaseAvailable = true;
+            dbAvailable = true;
+            console.log('Firebase and Firestore are available');
+        } else {
+            console.warn('Firebase or Firestore not available');
+        }
+    } catch (error) {
+        console.warn('Firebase check failed:', error);
+    }
+
+    // ===== AOS INITIALIZATION =====
+    try {
+        if (typeof AOS !== 'undefined') {
+            AOS.init({ duration: 1000, once: true });
+            console.log('AOS initialized');
+        }
+    } catch (error) {
+        console.error('AOS initialization failed:', error);
+    }
+
+    // ===== NAVBAR FUNCTIONALITY =====
+    window.addEventListener('scroll', () => {
+        const navbar = document.querySelector('.navbar');
+        if (navbar) {
+            navbar.classList.toggle('scrolled', window.scrollY > 50);
+        }
+    });
+
+    const burger = document.querySelector('.burger');
+    const navLinks = document.querySelector('.nav-links');
+    if (burger && navLinks) {
+        burger.addEventListener('click', () => {
+            navLinks.classList.toggle('active');
+            console.log('Burger clicked, nav-links toggled');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!burger.contains(e.target) && !navLinks.contains(e.target)) {
+                navLinks.classList.remove('active');
+            }
+        });
+    }
+
+    // ===== FIXED CART PERSISTENCE SYSTEM =====
+    
+    // Cart state - ensure these are global
+    let cartItems = [];
+    let cartItemCount = 0;
+
+    // FIXED: Enhanced cart loading with better error handling
+    function loadCartFromStorage() {
+        console.log('Loading cart from localStorage...');
+        try {
+            const savedCart = safeStorage.getItem('cartItems');
+            
+            if (savedCart) {
+                const parsedCart = JSON.parse(savedCart);
+                if (Array.isArray(parsedCart)) {
+                    cartItems = parsedCart;
+                    // Recalculate count to ensure accuracy
+                    cartItemCount = cartItems.reduce((total, item) => total + (item.quantity || 0), 0);
+                    console.log('Cart loaded successfully:', cartItems.length, 'unique items,', cartItemCount, 'total items');
+                    updateCartDisplay();
+                    return true;
+                } else {
+                    console.warn('Invalid cart data format, resetting cart');
+                    cartItems = [];
+                    cartItemCount = 0;
+                }
+            } else {
+                console.log('No saved cart found, starting with empty cart');
+                cartItems = [];
+                cartItemCount = 0;
+            }
+            updateCartDisplay();
+            return false;
+        } catch (error) {
+            console.error('Error loading cart from storage:', error);
+            cartItems = [];
+            cartItemCount = 0;
+            updateCartDisplay();
+            return false;
+        }
+    }
+
+    // FIXED: Enhanced cart saving with validation
+    function saveCartToStorage() {
+        try {
+            // Validate cart data before saving
+            const validCartItems = cartItems.filter(item => 
+                item && 
+                item.name && 
+                item.price && 
+                item.quantity && 
+                item.quantity > 0
+            );
+            
+            if (validCartItems.length !== cartItems.length) {
+                console.warn('Removing invalid cart items before saving');
+                cartItems = validCartItems;
+            }
+            
+            safeStorage.setItem('cartItems', JSON.stringify(cartItems));
+            safeStorage.setItem('cartItemCount', cartItemCount.toString());
+            safeStorage.setItem('cartLastUpdated', new Date().toISOString());
+            
+            console.log('Cart saved to storage:', cartItems.length, 'items');
+            return true;
+        } catch (error) {
+            console.error('Error saving cart to storage:', error);
+            return false;
+        }
+    }
+
+    // FIXED: Enhanced updateCartDisplay function
+    function updateCartDisplay() {
+        const cartContent = document.querySelector('.cart-content');
+        const cartItemCountBadge = document.querySelector('.cart-item-count');
+        const totalPriceElement = document.querySelector('.total-price');
+        
+        // Update badge first (always visible)
+        if (cartItemCountBadge) {
+            cartItemCountBadge.style.visibility = cartItemCount > 0 ? 'visible' : 'hidden';
+            cartItemCountBadge.textContent = cartItemCount > 0 ? cartItemCount : '';
+        }
+        
+        // Only update cart content if cart panel exists (not on all pages)
+        if (!cartContent) {
+            console.log('Cart content panel not found on this page, badge updated only');
+            return;
+        }
+        
+        // Clear current content
+        cartContent.innerHTML = '';
+        
+        if (cartItems.length === 0) {
+            cartContent.innerHTML = `
+                <div class="cart-empty">
+                    <i class="fas fa-shopping-cart"></i>
+                    <p>Your cart is empty</p>
+                </div>
+            `;
+            if (totalPriceElement) totalPriceElement.textContent = 'R0.00';
+        } else {
+            cartItems.forEach((item, index) => {
+                const cartBox = document.createElement('div');
+                cartBox.classList.add('cart-box');
+                cartBox.innerHTML = `
+                    <img src="${item.image}" alt="${item.name}" class="cart-img" onerror="this.src='Fotos/Logo.jpeg'">
+                    <div class="cart-detail">
+                        <h2 class="cart-product-title">${item.name}</h2>
+                        <div class="cart-variant-info">
+                            ${item.age ? `<span class="cart-age-badge">${item.age}</span>` : ''}
+                            ${item.weight ? `<span class="cart-weight-badge">${item.weight}</span>` : ''}
+                        </div>
+                        <span class="cart-price">R${item.price.toFixed(2)}</span>
+                        <div class="cart-quantity">
+                            <button class="decrement" ${item.quantity <= 1 ? 'disabled' : ''}>-</button>
+                            <span class="number">${item.quantity}</span>
+                            <button class="increment">+</button>
+                        </div>
+                    </div>
+                    <i class="fas fa-trash-can cart-remove" data-index="${index}"></i>
+                `;
+                
+                cartContent.appendChild(cartBox);
+                
+                // Add event listeners for quantity controls
+                const decrementBtn = cartBox.querySelector('.decrement');
+                const incrementBtn = cartBox.querySelector('.increment');
+                const removeBtn = cartBox.querySelector('.cart-remove');
+                const quantitySpan = cartBox.querySelector('.number');
+                
+                decrementBtn.addEventListener('click', () => {
+                    if (item.quantity > 1) {
+                        item.quantity--;
+                        quantitySpan.textContent = item.quantity;
+                        decrementBtn.disabled = item.quantity <= 1;
+                        updateCartTotals();
+                        saveCartToStorage();
+                    }
+                });
+                
+                incrementBtn.addEventListener('click', () => {
+                    item.quantity++;
+                    quantitySpan.textContent = item.quantity;
+                    decrementBtn.disabled = false;
+                    updateCartTotals();
+                    saveCartToStorage();
+                });
+                
+                removeBtn.addEventListener('click', () => {
+                    removeFromCart(index);
+                });
+            });
+            
+            updateCartTotals();
+        }
+        
+        // Add delivery section if cart has items
+        if (cartItems.length > 0) {
+            addDeliverySection();
+        }
+    }
+
+    // FIXED: Enhanced updateCartTotals function
+    function updateCartTotals() {
+        const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const finalTotal = subtotal + currentDeliveryCost;
+        
+        // Update display elements
+        const subtotalElement = document.getElementById('subtotal-price');
+        const deliveryRow = document.getElementById('delivery-cost-row');
+        const deliveryPriceElement = document.getElementById('delivery-price');
+        const finalTotalElement = document.getElementById('final-total-price');
+        const oldTotalElement = document.querySelector('.total-price:not(#final-total-price)');
+        
+        if (subtotalElement) subtotalElement.textContent = `R${subtotal.toFixed(2)}`;
+        
+        if (currentDeliveryCost > 0) {
+            if (deliveryRow) deliveryRow.style.display = 'flex';
+            if (deliveryPriceElement) deliveryPriceElement.textContent = `R${currentDeliveryCost.toFixed(2)}`;
+        } else {
+            if (deliveryRow) deliveryRow.style.display = 'none';
+        }
+        
+        if (finalTotalElement) finalTotalElement.textContent = `R${finalTotal.toFixed(2)}`;
+        if (oldTotalElement) oldTotalElement.textContent = `R${finalTotal.toFixed(2)}`;
+        
+        // Update item count
+        cartItemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+        const cartItemCountBadge = document.querySelector('.cart-item-count');
+        if (cartItemCountBadge) {
+            cartItemCountBadge.style.visibility = cartItemCount > 0 ? 'visible' : 'hidden';
+            cartItemCountBadge.textContent = cartItemCount > 0 ? cartItemCount : '';
+        }
+        
+        // Save updated cart
+        saveCartToStorage();
+    }
+
+    // NEW: Cart notification system
+    function showCartNotification(message) {
+        // Remove existing notification
+        const existingNotification = document.querySelector('.cart-notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+        
+        // Create notification
+        const notification = document.createElement('div');
+        notification.className = 'cart-notification';
+        notification.style.cssText = `
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: #4caf50;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 25px;
+            font-weight: 600;
+            z-index: 10000;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            animation: slideInRight 0.3s ease;
+            max-width: 300px;
+            font-size: 0.9rem;
+        `;
+        notification.innerHTML = `
+            <i class="fas fa-check-circle" style="margin-right: 0.5rem;"></i>
+            ${message}
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto remove after 3 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }
+        }, 3000);
+    }
+
+    // FIXED: Enhanced addToCart function
+    function addToCart(productData) {
+        console.log('Adding to cart:', productData);
+        
+        if (!productData || !productData.name || !productData.price) {
+            console.error('Invalid product data provided to addToCart');
+            return false;
+        }
+        
+        // Check if item already exists in cart
+        const existingItemIndex = cartItems.findIndex(item => 
+            item.variantId === productData.variantId || 
+            (item.name === productData.name && item.age === productData.age && item.weight === productData.weight)
+        );
+        
+        if (existingItemIndex !== -1) {
+            // Item exists, increase quantity
+            cartItems[existingItemIndex].quantity++;
+            console.log('Increased quantity for existing item');
+        } else {
+            // New item - ensure all required properties exist
+            const newItem = {
+                name: productData.name,
+                price: productData.price,
+                image: productData.image || 'Fotos/Logo.jpeg',
+                quantity: 1,
+                variantId: productData.variantId || null,
+                age: productData.age || null,
+                weight: productData.weight || null,
+                addedAt: new Date().toISOString()
+            };
+            cartItems.push(newItem);
+            console.log('Added new item to cart');
+        }
+        
+        updateCartDisplay();
+        const saved = saveCartToStorage();
+        
+        if (saved) {
+            // Show success message
+            const message = existingItemIndex !== -1 ? 'Item quantity increased in cart!' : 'Item added to cart!';
+            showCartNotification(message);
+            return true;
+        } else {
+            alert('Failed to save item to cart. Please try again.');
+            return false;
+        }
+    }
+
+    // FIXED: Enhanced removeFromCart function
+    function removeFromCart(index) {
+        if (index >= 0 && index < cartItems.length) {
+            const removedItem = cartItems[index];
+            cartItems.splice(index, 1);
+            console.log('Removed item from cart:', removedItem.name);
+            updateCartDisplay();
+            saveCartToStorage();
+            showCartNotification('Item removed from cart');
+        }
+    }
+
+    // FIXED: Prevent accidental cart clearing
+    function clearCart() {
+        console.log('clearCart() called - checking if intentional...');
+        
+        // Add a flag to prevent accidental clearing
+        const isIntentionalClear = arguments[0] === 'INTENTIONAL';
+        if (!isIntentionalClear) {
+            console.warn('Cart clear blocked - use clearCart("INTENTIONAL") if you really want to clear');
+            return false;
+        }
+        
+        cartItems = [];
+        cartItemCount = 0;
+        currentDeliveryCost = 0;
+        deliveryAddress = null;
+        updateCartDisplay();
+        saveCartToStorage();
+        console.log('Cart cleared intentionally');
+        return true;
+    }
+
+    // FIXED: Initialize cart immediately and persistently
+    function initializeCart() {
+        console.log('Initializing cart system...');
+        
+        // Load cart from storage first
+        loadCartFromStorage();
+        
+        // Set up cart icon click handler
+        const cartIcon = document.querySelector('#cart-icon');
+        const cart = document.querySelector('.cart');
+        const cartClose = document.querySelector('#cart-close');
+        
+        if (cartIcon && cart) {
+            cartIcon.addEventListener('click', () => {
+                console.log('Cart icon clicked');
+                cart.classList.add('active');
+                // Refresh cart display when opened
+                updateCartDisplay();
+            });
+        }
+        
+        if (cartClose && cart) {
+            cartClose.addEventListener('click', () => {
+                console.log('Cart close clicked');
+                cart.classList.remove('active');
+            });
+        }
+        
+        // Make functions globally available
+        window.addToCart = addToCart;
+        window.loadCartFromStorage = loadCartFromStorage;
+        window.saveCartToStorage = saveCartToStorage;
+        window.clearCart = clearCart;
+        window.removeFromCart = removeFromCart;
+        
+        console.log('Cart system initialized successfully');
+    }
+
+    // ===== DELIVERY FUNCTIONALITY =====
+    
+    const DELIVERY_CONFIG = {
+        originAddress: "1309 Cunningham Ave, Waverley, Pretoria, 0186",
+        
+        rates: {
+            local: {
+                "0-1": 85,
+                "1-2": 95,
+                "2-5": 120,
+                "5-10": 165,
+                "10-20": 220,
+                "20-30": 285,
+                "30+": 350
+            },
+            regional: {
+                "0-1": 105,
+                "1-2": 125,
+                "2-5": 155,
+                "5-10": 195,
+                "10-20": 265,
+                "20-30": 340,
+                "30+": 415
+            },
+            national: {
+                "0-1": 135,
+                "1-2": 165,
+                "2-5": 205,
+                "5-10": 275,
+                "10-20": 365,
+                "20-30": 465,
+                "30+": 565
+            }
+        },
+        
+        zones: {
+            local: [
+                "pretoria", "tshwane", "centurion", "midrand", "irene", "waverley",
+                "hatfield", "arcadia", "sunnyside", "brooklyn", "menlyn", "garsfontein"
+            ],
+            regional: [
+                "johannesburg", "sandton", "randburg", "roodepoort", "soweto", "germiston",
+                "kempton park", "benoni", "boksburg", "alberton", "springs", "nigel",
+                "vanderbijlpark", "vereeniging", "sasolburg", "potchefstroom", "klerksdorp",
+                "rustenburg", "brits"
+            ],
+            national: [
+                "cape town", "durban", "port elizabeth", "east london", "bloemfontein",
+                "kimberley", "polokwane", "nelspruit", "witbank", "secunda", "phalaborwa"
+            ]
+        }
+    };
+
+    let currentDeliveryCost = 0;
+    let deliveryAddress = null;
+
+    function addDeliverySection() {
+        const cart = document.querySelector('.cart');
+        const totalSection = cart.querySelector('.total');
+        if (!cart || !totalSection) return;
+        if (cart.querySelector('.delivery-section')) return;
+
+        const deliverySection = document.createElement('div');
+        deliverySection.className = 'delivery-section';
+        deliverySection.innerHTML = `
+            <div class="delivery-header">
+                <h3><i class="fas fa-truck"></i> Delivery Information</h3>
+            </div>
+            <div class="delivery-form">
+                <div class="address-input-group">
+                    <label for="delivery-address">Delivery Address:</label>
+                    <input type="text" id="delivery-address" placeholder="Street address">
+                    <input type="text" id="delivery-city" placeholder="City">
+                    <input type="text" id="delivery-province" placeholder="Province">
+                    <input type="text" id="delivery-postal" placeholder="Postal Code">
+                </div>
+                <button type="button" id="save-delivery-address" class="calculate-btn">
+                    <i class="fas fa-save"></i> Save Delivery Address
+                </button>
+            </div>
+        `;
+        cart.insertBefore(deliverySection, totalSection);
+
+        const addressInput = deliverySection.querySelector('#delivery-address');
+        const cityInput = deliverySection.querySelector('#delivery-city');
+        const provinceInput = deliverySection.querySelector('#delivery-province');
+        const postalInput = deliverySection.querySelector('#delivery-postal');
+
+        [addressInput, cityInput, provinceInput, postalInput].forEach(input => {
+            if (input) {
+                input.addEventListener('input', () => {
+                    const deliveryAddress = {
+                        address: addressInput ? addressInput.value.trim() : '',
+                        city: cityInput ? cityInput.value.trim() : '',
+                        province: provinceInput ? provinceInput.value.trim() : '',
+                        postalCode: postalInput ? postalInput.value.trim() : ''
+                    };
+                    safeStorage.setItem('deliveryAddress', JSON.stringify(deliveryAddress));
+                });
+            }
+        });
+        
+        const saveBtn = deliverySection.querySelector('#save-delivery-address');
+        saveBtn.addEventListener('click', () => {
+            showCartNotification('Delivery address saved! You can now proceed to checkout.');
+        });
+    }
+
+    // ===== AUTHENTICATION SYSTEM =====
+    const authModal = document.querySelector('#auth-modal');
+    const authForm = document.querySelector('#auth-form');
+    const authTitle = document.querySelector('#auth-title');
+    const authSubmit = document.querySelector('#auth-submit');
+    const toggleLink = document.querySelector('#toggle-link');
+    const authClose = document.querySelector('#auth-close');
+    const loginLink = document.querySelector('#login-link');
+    const usernameInput = document.querySelector('#username');
+    const emailInput = document.querySelector('#email');
+    const passwordInput = document.querySelector('#password');
+    let isLoginMode = true;
+
+    function showAuthMessage(message, type) {
+        const existingMessage = document.querySelector('.auth-message');
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `auth-message ${type}`;
+        messageDiv.textContent = message;
+        
+        const form = document.querySelector('#auth-form');
+        if (form) {
+            form.insertBefore(messageDiv, form.firstChild);
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.remove();
+                }
+            }, 5000);
+        }
+    }
+
+    if (loginLink && authModal) {
+        loginLink.addEventListener('click', e => {
+            e.preventDefault();
+            console.log('Login link clicked');
+            authModal.classList.add('active');
+            isLoginMode = true;
+            if (authTitle) authTitle.textContent = 'Login';
+            if (authSubmit) authSubmit.textContent = 'Login';
+            if (usernameInput) usernameInput.style.display = 'none';
+            const authToggle = document.querySelector('#auth-toggle');
+            if (authToggle) {
+                authToggle.innerHTML = 'Don\'t have an account? <a href="#" id="toggle-link">Register</a>';
+            }
+            if (authForm) authForm.reset();
+            attachToggleEvent();
+        });
+    }
+
+    function attachToggleEvent() {
+        const newToggleLink = document.querySelector('#toggle-link');
+        if (newToggleLink) {
+            newToggleLink.addEventListener('click', e => {
+                e.preventDefault();
+                console.log('Toggle link clicked');
+                isLoginMode = !isLoginMode;
+                if (authTitle) authTitle.textContent = isLoginMode ? 'Login' : 'Register';
+                if (authSubmit) authSubmit.textContent = isLoginMode ? 'Login' : 'Register';
+                if (usernameInput) usernameInput.style.display = isLoginMode ? 'none' : 'block';
+                const authToggle = document.querySelector('#auth-toggle');
+                if (authToggle) {
+                    authToggle.innerHTML = isLoginMode ? 
+                        'Don\'t have an account? <a href="#" id="toggle-link">Register</a>' :
+                        'Already have an account? <a href="#" id="toggle-link">Login</a>';
+                }
+                if (authForm) authForm.reset();
+                const existingMessage = document.querySelector('.auth-message');
+                if (existingMessage) {
+                    existingMessage.remove();
+                }
+                attachToggleEvent();
+            });
+        }
+    }
+
+    attachToggleEvent();
+
+    if (authClose) {
+        authClose.addEventListener('click', () => {
+            console.log('Close modal clicked');
+            authModal.classList.remove('active');
+            if (authForm) authForm.reset();
+            const existingMessage = document.querySelector('.auth-message');
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+        });
+    }
+
+    if (authForm) {
+        authForm.addEventListener('submit', e => {
+            e.preventDefault();
+            console.log('Auth form submitted');
+            
+            const email = emailInput ? emailInput.value.trim() : '';
+            const password = passwordInput ? passwordInput.value : '';
+            const username = usernameInput ? usernameInput.value.trim() : '';
+
+            if (!email || !password) {
+                showAuthMessage('Please fill in all required fields.', 'error');
+                return;
+            }
+
+            if (!email.includes('@')) {
+                showAuthMessage('Please enter a valid email address.', 'error');
+                return;
+            }
+
+            if (password.length < 6) {
+                showAuthMessage('Password must be at least 6 characters long.', 'error');
+                return;
+            }
+
+            if (!isLoginMode && !username) {
+                showAuthMessage('Please enter a username.', 'error');
+                return;
+            }
+
+            if (authSubmit) {
+                authSubmit.disabled = true;
+                authSubmit.textContent = isLoginMode ? 'Logging in...' : 'Registering...';
+            }
+
+            if (isLoginMode) {
+                login(email, password);
+            } else {
+                register(email, password, username);
+            }
+        });
+    }
+
+    function login(email, password) {
+        console.log('Attempting login with Firebase:', email);
+        
+        if (!firebaseAvailable || !dbAvailable) {
+            showAuthMessage('Authentication service unavailable. Please try again later.', 'error');
+            resetAuthButton();
+            return;
+        }
+        
+        db.collection('users').where('email', '==', email).get()
+            .then((querySnapshot) => {
+                if (querySnapshot.empty) {
+                    showAuthMessage('Invalid email or password', 'error');
+                    resetAuthButton();
+                    return;
+                }
+
+                let userFound = false;
+                querySnapshot.forEach((doc) => {
+                    const userData = doc.data();
+                    
+                    if (userData.password === password) {
+                        userFound = true;
+                        
+                        const userSession = {
+                            id: doc.id,
+                            email: userData.email,
+                            username: userData.username,
+                            role: userData.role || 'user'
+                        };
+                        
+                        safeStorage.setItem('currentUser', JSON.stringify(userSession));
+                        
+                        db.collection('users').doc(doc.id).update({
+                            lastLogin: new Date().toISOString()
+                        }).catch(error => {
+                            console.error('Error updating last login:', error);
+                        });
+                        
+                        updateAuthUI(userSession);
+                        authModal.classList.remove('active');
+                        showAuthMessage('Login successful!', 'success');
+                        
+                        if (userSession.role === 'admin') {
+                            setTimeout(() => {
+                                window.location.href = 'admin.html';
+                            }, 1000);
+                        }
+                        
+                        resetAuthButton();
+                    }
+                });
+
+                if (!userFound) {
+                    showAuthMessage('Invalid email or password', 'error');
+                    resetAuthButton();
+                }
+            })
+            .catch(error => {
+                console.error('Login error:', error);
+                showAuthMessage('Login failed. Please try again.', 'error');
+                resetAuthButton();
+            });
+    }
+
+    function register(email, password, username) {
+        console.log('Attempting register with Firebase:', email, username);
+        
+        if (!firebaseAvailable || !dbAvailable) {
+            showAuthMessage('Registration service unavailable. Please try again later.', 'error');
+            resetAuthButton();
+            return;
+        }
+        
+        db.collection('users').where('email', '==', email).get()
+            .then((querySnapshot) => {
+                if (!querySnapshot.empty) {
+                    showAuthMessage('Email already registered', 'error');
+                    resetAuthButton();
+                    return;
+                }
+                
+                const role = email === 'admin@teientamashii.com' ? 'admin' : 'user';
+                const newUser = {
+                    email: email,
+                    password: password,
+                    username: username,
+                    role: role,
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString()
+                };
+                
+                return db.collection('users').add(newUser);
+            })
+            .then((docRef) => {
+                if (docRef) {
+                    console.log('User created with ID:', docRef.id);
+                    
+                    const userSession = {
+                        id: docRef.id,
+                        email: email,
+                        username: username,
+                        role: newUser.role
+                    };
+                    
+                    safeStorage.setItem('currentUser', JSON.stringify(userSession));
+                    updateAuthUI(userSession);
+                    authModal.classList.remove('active');
+                    showAuthMessage('Registration successful!', 'success');
+                    
+                    if (userSession.role === 'admin') {
+                        setTimeout(() => {
+                            window.location.href = 'admin.html';
+                        }, 1000);
+                    }
+                    
+                    resetAuthButton();
+                }
+            })
+            .catch(error => {
+                console.error('Registration error:', error);
+                showAuthMessage('Registration failed. Please try again.', 'error');
+                resetAuthButton();
+            });
+    }
+
+    function resetAuthButton() {
+        if (authSubmit) {
+            authSubmit.disabled = false;
+            authSubmit.textContent = isLoginMode ? 'Login' : 'Register';
+        }
+    }
+
+    function updateAuthUI(user) {
+        console.log('Updating auth UI for user:', user.username);
+        const authLink = document.querySelector('#auth-link');
+        const adminLink = document.querySelector('#admin-link');
+        
+        if (!authLink) {
+            console.error('Auth link not found');
+            return;
+        }
+        
+        if (user) {
+            authLink.innerHTML = `<a href="#" id="logout-link">Logout (${user.username})</a>`;
+            
+            if (user.role === 'admin' && adminLink) {
+                adminLink.style.display = 'block';
+                console.log('Admin link shown');
+            }
+            
+            const logoutLink = document.querySelector('#logout-link');
+            if (logoutLink) {
+                logoutLink.addEventListener('click', e => {
+                    e.preventDefault();
+                    console.log('Logout clicked');
+                    
+                    if (user.id && firebaseAvailable && dbAvailable) {
+                        db.collection('users').doc(user.id).update({
+                            lastLogout: new Date().toISOString()
+                        }).catch(error => {
+                            console.error('Error updating logout time:', error);
+                        });
+                    }
+                    
+                    safeStorage.removeItem('currentUser');
+                    authLink.innerHTML = `<a href="#login" id="login-link">Login</a>`;
+                    if (adminLink) {
+                        adminLink.style.display = 'none';
+                    }
+                    
+                    const newLoginLink = document.querySelector('#login-link');
+                    if (newLoginLink) {
+                        newLoginLink.addEventListener('click', e => {
+                            e.preventDefault();
+                            authModal.classList.add('active');
+                            isLoginMode = true;
+                            if (authTitle) authTitle.textContent = 'Login';
+                            if (authSubmit) authSubmit.textContent = 'Login';
+                            if (usernameInput) usernameInput.style.display = 'none';
+                            const authToggle = document.querySelector('#auth-toggle');
+                            if (authToggle) {
+                                authToggle.innerHTML = 'Don\'t have an account? <a href="#" id="toggle-link">Register</a>';
+                            }
+                            if (authForm) authForm.reset();
+                            attachToggleEvent();
+                        });
+                    }
+                    
+                    location.reload();
+                });
+            }
+        }
+    }
+
+    // ===== PRODUCT LOADING FUNCTIONS =====
+    
+    function isShopPage() {
+        return window.location.pathname.includes('shop.html');
+    }
+
+    function loadProducts(filterCategory = 'all') {
+        console.log('Loading products with filter:', filterCategory);
+        const productContent = document.querySelector('#product-content');
+        if (!productContent) {
+            console.error('Product content element not found');
+            return;
+        }
+
+        if (!firebaseAvailable || !dbAvailable) {
+            productContent.innerHTML = '<p>Product catalog temporarily unavailable. Please try again later.</p>';
+            return;
+        }
+
+        productContent.innerHTML = '<p>Loading products...</p>';
+
+        db.collection('products').get().then((snapshot) => {
+            if (snapshot.empty) {
+                productContent.innerHTML = '<p>No products available. Admin can add products from the admin panel.</p>';
+                return;
+            }
+            
+            const groupedProducts = {};
+            snapshot.forEach(doc => {
+                const p = doc.data();
+                
+                let shouldInclude = false;
+                
+                if (filterCategory === 'all') {
+                    shouldInclude = true;
+                } else if (p.category) {
+                    const categories = p.category.includes(',') 
+                        ? p.category.split(',').map(cat => cat.trim().toLowerCase())
+                        : [p.category.toLowerCase()];
+                    
+                    shouldInclude = categories.includes(filterCategory.toLowerCase());
+                }
+                
+                if (shouldInclude && p.quantity > 0) {
+                    const key = p.title;
+                    if (!groupedProducts[key]) {
+                        groupedProducts[key] = [];
+                    }
+                    groupedProducts[key].push({ id: doc.id, ...p });
+                }
+            });
+            
+            let productsHTML = '';
+            let productCount = 0;
+            
+            Object.keys(groupedProducts).forEach(productTitle => {
+                const variants = groupedProducts[productTitle];
+                const mainProduct = variants[0];
+                productCount++;
+                
+                const prices = variants.map(v => v.price);
+                const minPrice = Math.min(...prices);
+                const maxPrice = Math.max(...prices);
+                const priceDisplay = minPrice === maxPrice ? `R${minPrice}` : `R${minPrice} - R${maxPrice}`;
+                
+                const variantText = variants.length === 1 ? 
+                    '1 variant' : 
+                    `${variants.length} variants`;
+                
+                productsHTML += `
+                    <div class="product-box" data-product-title="${productTitle}">
+                        <div class="img-box">
+                            <img src="${mainProduct.image}" alt="${mainProduct.title}">
+                        </div>
+                        <h2 class="product-title">${mainProduct.title}</h2>
+                        <div class="rating">
+                            ${Array(5).fill('<i class="fa fa-star"></i>').join('')}
+                        </div>
+                        <p>${getCategoryText(mainProduct.category)}</p>
+                        <p class="variant-count">${variantText} (age + weight)</p>
+                        <div class="price-and-cart">
+                            <span class="price">${priceDisplay}</span>
+                            <button class="select-variant-btn" onclick="openVariantModal('${productTitle}')">
+                                <i class="fas fa-cog"></i> Select Variant
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            if (productCount === 0) {
+                const categoryDisplayName = filterCategory === 'all' ? 'this selection' : getCategoryText(filterCategory);
+                productContent.innerHTML = `<p>No products available for ${categoryDisplayName}.</p>`;
+            } else {
+                productContent.innerHTML = productsHTML;
+            }
+            
+            console.log(`Loaded ${productCount} product types for category: ${filterCategory}`);
+            
+        }).catch(error => {
+            console.error('Error getting products:', error);
+            productContent.innerHTML = '<p>Error loading products. Please try again later.</p>';
+        });
+    }
+
+    function getCategoryText(category) {
+        if (!category) return 'General Product';
+        
+        const categoryMap = {
+            'prebonsai': 'Pre-Bonsai',
+            'seedlings': 'Seedlings',
+            'silver-bonsai': 'Silver Bonsai',
+            'gold-bonsai': 'Gold Bonsai',
+            'platinum-bonsai': 'Platinum Bonsai',
+            'imported-bonsai': 'Imported Bonsai',
+            'bonsai-pots': 'Bonsai Pots',
+            'bonsai-tools': 'Bonsai Tools',
+            'bonsai-wire': 'Bonsai Wire',
+            'bonsai-accessories': 'Bonsai Accessories',
+            'rare-succulents-cacti': 'Rare Succulents & Cacti',
+            'orchids': 'Orchids',
+            'airplants': 'Air Plants',
+            'terrariums': 'Terrariums',
+            'aquariums': 'Aquariums',
+            'aqua-scapes': 'Aqua Scapes',
+            'rocks': 'Rocks',
+            'driftwood': 'Driftwood',
+            'pebbles': 'Pebbles',
+            'mosses': 'Mosses',
+            'pot-dressings': 'Pot Dressings'
+        };
+        
+        if (category.includes(',')) {
+            const categories = category.split(',').map(cat => cat.trim());
+            return categories.map(cat => categoryMap[cat] || cat.charAt(0).toUpperCase() + cat.slice(1)).join(', ');
+        }
+        
+        return categoryMap[category] || category.charAt(0).toUpperCase() + category.slice(1);
+    }
+
+    // Shop page filters
+    if (isShopPage()) {
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        
+        filterButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                filterButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                const filterValue = button.dataset.filter;
+                console.log('Filter button clicked:', filterValue);
+                loadProducts(filterValue);
+            });
+        });
+        
+        loadProducts('all');
+    }
+
+    function loadFeaturedProducts() {
+        const featuredContent = document.querySelector('#featured-content');
+        if (!featuredContent) return;
+
+        if (!firebaseAvailable || !dbAvailable) {
+            featuredContent.innerHTML = '<p>Featured products temporarily unavailable.</p>';
+            return;
+        }
+
+        featuredContent.innerHTML = '<p>Loading featured products...</p>';
+
+        db.collection('products').limit(3).get()
+            .then((snapshot) => {
+                if (snapshot.empty) {
+                    featuredContent.innerHTML = '<p>No featured products available. Admin can add products from the admin panel.</p>';
+                    return;
+                }
+                
+                let featuredHTML = '';
+                snapshot.forEach(doc => {
+                    const p = doc.data();
+                    const ageText = p.age ? (p.age === 1 ? '1 year' : `${p.age} years`) : 'Age N/A';
+                    const weightText = p.weight ? `${p.weight}${p.weightUnit || 'kg'}` : 'Weight N/A';
+                    
+                    featuredHTML += `
+                        <div class="product-box ${p.inStock === false ? 'out-of-stock' : ''}">
+                            <div class="img-box">
+                                <img src="${p.image}" alt="${p.title}">
+                            </div>
+                            <h2 class="product-title">${p.title}</h2>
+                            <div class="rating">
+                                ${Array(5).fill('<i class="fa fa-star"></i>').join('')}
+                            </div>
+                            <p>${getCategoryText(p.category)}</p>
+                            <div class="variant-info-display">
+                                <div class="age-weight-display">
+                                    <span class="age-badge">${ageText}</span>
+                                    <span class="weight-badge">${weightText}</span>
+                                </div>
+                            </div>
+                            <p class="stock-status ${p.quantity <= 0 ? 'out-of-stock' : 'in-stock'}">
+                                ${p.quantity <= 0 ? 'Out of Stock' : 'In Stock'}
+                            </p>
+                            <div class="price-and-cart">
+                                <span class="price">R${p.price}</span>
+                                ${p.quantity > 0 
+                                    ? `<button class="select-variant-btn" onclick="addSingleVariantToCart('${doc.id}', '${p.title}', ${p.price}, '${p.image}', '${ageText}', '${weightText}')">
+                                        <i class="fas fa-shopping-bag"></i> Add to Cart
+                                       </button>`
+                                    : `<span class="out-of-stock-label">Unavailable</span>`
+                                }
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                featuredContent.innerHTML = featuredHTML;
+            })
+            .catch(error => {
+                console.error('Error loading featured products:', error);
+                featuredContent.innerHTML = '<p>Error loading featured products. Please try again later.</p>';
+            });
+    }
+
+    // Function to add single variant to cart (for featured products)
+    window.addSingleVariantToCart = function(variantId, title, price, image, age, weight) {
+        const productData = {
+            name: `${title} (${age}, ${weight})`,
+            price: price,
+            image: image,
+            variantId: variantId,
+            age: age,
+            weight: weight
+        };
+        addToCart(productData);
+    };
+
+    function loadFeaturedCourses() {
+        const featuredCoursesContent = document.querySelector('#featured-courses-content');
+        if (!featuredCoursesContent) return;
+
+        if (!firebaseAvailable || !dbAvailable) {
+            featuredCoursesContent.innerHTML = '<p>Featured courses temporarily unavailable.</p>';
+            return;
+        }
+
+        featuredCoursesContent.innerHTML = '<p>Loading featured courses...</p>';
+
+        db.collection('courses').limit(3).get()
+            .then((snapshot) => {
+                if (snapshot.empty) {
+                    featuredCoursesContent.innerHTML = '<p>No featured courses available. Admin can add courses from the admin panel.</p>';
+                    return;
+                }
+                
+                let featuredHTML = '';
+                snapshot.forEach(doc => {
+                    const course = doc.data();
+                    const shortDescription = course.description.length > 120 
+                        ? course.description.substring(0, 120) + '...' 
+                        : course.description;
+                    
+                    featuredHTML += `
+                        <div class="product-box course-box">
+                            <div class="img-box">
+                                <img src="${course.image}" alt="${course.title}">
+                            </div>
+                            <h2 class="product-title">${course.title}</h2>
+                            <div class="course-info">
+                                <span class="course-level">${course.level.charAt(0).toUpperCase() + course.level.slice(1)} Level</span>
+                                <span class="course-duration">${course.duration}h</span>
+                            </div>
+                            <p class="course-description">${shortDescription}</p>
+                            <div class="price-and-cart">
+                                <span class="price">R${course.price}</span>
+                                <a href="courses.html" class="cta-btn course-btn">Learn More</a>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                featuredCoursesContent.innerHTML = featuredHTML;
+            })
+            .catch(error => {
+                console.error('Error loading featured courses:', error);
+                featuredCoursesContent.innerHTML = '<p>Error loading featured courses. Please try again later.</p>';
+            });
+    }
+
+    // ===== VARIANT SELECTION MODAL =====
+    window.openVariantModal = function(productTitle) {
+        console.log('Opening variant modal for:', productTitle);
+        
+        if (!firebaseAvailable || !dbAvailable) {
+            alert('Product options temporarily unavailable. Please try again later.');
+            return;
+        }
+        
+        const modal = document.getElementById('variant-modal');
+        const modalTitle = document.getElementById('variant-modal-title');
+        const variantOptions = document.getElementById('variant-options');
+        
+        if (!modal || !modalTitle || !variantOptions) {
+            console.error('Variant modal elements not found');
+            return;
+        }
+        
+        modalTitle.textContent = `${productTitle} - Select Variant`;
+        variantOptions.innerHTML = '<p>Loading variants...</p>';
+        
+        db.collection('products').where('title', '==', productTitle).get()
+            .then((snapshot) => {
+                if (snapshot.empty) {
+                    variantOptions.innerHTML = '<p>No variants available.</p>';
+                    return;
+                }
+                
+                let optionsHTML = '';
+                const variants = [];
+                
+                snapshot.forEach(doc => {
+                    const variant = { id: doc.id, ...doc.data() };
+                    if (variant.quantity > 0) {
+                        variants.push(variant);
+                    }
+                });
+                
+                variants.sort((a, b) => {
+                    if (a.age !== b.age) return a.age - b.age;
+                    return (a.weight || 0) - (b.weight || 0);
+                });
+                
+                variants.forEach(variant => {
+                    const ageText = variant.age === 1 ? '1 year' : `${variant.age} years`;
+                    const weightText = variant.weight ? `${variant.weight}${variant.weightUnit || 'kg'}` : 'Weight N/A';
+                    
+                    optionsHTML += `
+                        <div class="age-option" onclick="selectVariant('${variant.id}', '${variant.title}', ${variant.age}, '${weightText}', ${variant.price}, '${variant.image}')">
+                            <div class="age-option-info">
+                                <div class="variant-info-display">
+                                    <div class="age-weight-display">
+                                        <span class="age-badge">${ageText}</span>
+                                        <span class="weight-badge">${weightText}</span>
+                                    </div>
+                                    <div class="age-price">R${variant.price}</div>
+                                    <div class="age-stock">${variant.quantity} available</div>
+                                </div>
+                            </div>
+                            <div class="age-add-to-cart">
+                                <i class="fas fa-shopping-bag"></i>
+                                Add to Cart
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                if (variants.length === 0) {
+                    optionsHTML = '<p>All variants are currently out of stock.</p>';
+                }
+                
+                variantOptions.innerHTML = optionsHTML;
+                modal.classList.add('active');
+            })
+            .catch(error => {
+                console.error('Error loading variants:', error);
+                variantOptions.innerHTML = '<p>Error loading variant options.</p>';
+            });
+    };
+
+    window.closeVariantModal = function() {
+        const modal = document.getElementById('variant-modal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+    };
+
+    window.selectVariant = function(variantId, title, age, weight, price, image) {
+        console.log('Selected variant:', { variantId, title, age, weight, price });
+        
+        const ageText = age === 1 ? '1 year' : `${age} years`;
+        const productData = {
+            name: `${title} (${ageText}, ${weight})`,
+            price: price,
+            image: image,
+            variantId: variantId,
+            age: ageText,
+            weight: weight
+        };
+        
+        addToCart(productData);
+        closeVariantModal();
+    };
+
+    document.addEventListener('click', (e) => {
+        const modal = document.getElementById('variant-modal');
+        if (e.target === modal) {
+            closeVariantModal();
+        }
+    });
+
+    // ===== DEMO PAYFAST INTEGRATION =====
+    
+    function processDemoPayment() {
+        console.log('DEMO MODE: Processing payment with delivery...');
+        
+        // Validate cart
+        if (!cartItems || cartItems.length === 0) {
+            alert('Your cart is empty. Please add items to continue.');
+            return;
+        }
+
+        let subtotal = 0;
+        let orderItems = [];
+        
+        try {
+            cartItems.forEach(item => {
+                if (!item.price || !item.quantity) {
+                    throw new Error('Invalid item in cart');
+                }
+                subtotal += item.price * item.quantity;
+                orderItems.push({
+                    name: item.name,
+                    price: item.price,
+                    quantity: item.quantity,
+                    variantId: item.variantId,
+                    total: item.price * item.quantity
+                });
+            });
+
+            const total = subtotal + (currentDeliveryCost || 0);
+
+            if (total <= 0) {
+                alert('Invalid cart total. Please refresh and try again.');
+                return;
+            }
+
+            const orderId = `DEMO_TT${Date.now()}${Math.floor(Math.random() * 1000)}`;
+            
+            const completedOrder = {
+                orderId: orderId,
+                items: orderItems,
+                subtotal: subtotal,
+                deliveryCost: currentDeliveryCost || 0,
+                deliveryAddress: deliveryAddress,
+                total: total,
+                timestamp: new Date().toISOString(),
+                status: 'completed'
+            };
+            
+            console.log('DEMO MODE: Creating completed order with delivery:', completedOrder);
+            
+            // Store order data
+            try {
+                safeStorage.setItem('completedOrder', JSON.stringify(completedOrder));
+            } catch (error) {
+                console.error('Failed to store order data:', error);
+            }
+
+            // Show confirmation and proceed
+            showDemoPaymentConfirmation(completedOrder, () => {
+                proceedToSuccessDemo(orderId, completedOrder);
+            });
+            
+        } catch (error) {
+            console.error('Error processing payment:', error);
+            alert('Error processing payment. Please try again.');
+        }
+    }
+
+    function proceedToSuccessDemo(orderId, orderData) {
+        console.log('DEMO MODE: Proceeding to success page...');
+        
+        // Update buy button state
+        const buyButton = document.querySelector('.btn-buy');
+        if (buyButton) {
+            const originalText = buyButton.innerHTML;
+            buyButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Demo...';
+            buyButton.disabled = true;
+            
+            setTimeout(() => {
+                if (buyButton) {
+                    buyButton.innerHTML = originalText;
+                    buyButton.disabled = false;
+                }
+            }, 5000);
+        }
+
+        const demoPaymentId = `DEMO_PF${Date.now()}`;
+        
+        // Show success modal after delay
+        setTimeout(() => {
+            showDemoSuccessModal(orderId, 'COMPLETE', demoPaymentId, orderData);
+        }, 2000);
+    }
+
+    function showDemoPaymentConfirmation(order, callback) {
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 20px;
+        `;
+        
+        modal.innerHTML = `
+            <div style="
+                background: white;
+                padding: 30px;
+                border-radius: 15px;
+                max-width: 600px;
+                width: 100%;
+                text-align: center;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+                max-height: 90vh;
+                overflow-y: auto;
+            ">
+                <h3 style="color: #4caf50; margin-bottom: 20px; font-size: 1.5rem;">
+                    <i class="fas fa-play-circle"></i> Demo Mode Active
+                </h3>
+                <div style="
+                    background: #e3f2fd;
+                    padding: 20px;
+                    border-radius: 10px;
+                    margin: 20px 0;
+                    text-align: left;
+                    border-left: 4px solid #2196f3;
+                ">
+                    <h4 style="color: #1565c0; margin-bottom: 15px;">
+                        <i class="fas fa-info-circle"></i> Demo Purchase Preview
+                    </h4>
+                    <p style="margin-bottom: 10px; color: #1976d2;">
+                        This is a demonstration of what happens after a successful purchase. 
+                        No actual payment will be processed.
+                    </p>
+                </div>
+                <div style="
+                    background: #f8f9fa;
+                    padding: 20px;
+                    border-radius: 10px;
+                    margin: 20px 0;
+                    text-align: left;
+                ">
+                    <h4 style="color: #2e7d32; margin-bottom: 15px;">Order Summary:</h4>
+                    <p><strong>Order ID:</strong> ${order.orderId}</p>
+                    <p><strong>Items:</strong> ${order.items.length}</p>
+                    <p><strong>Total:</strong> R${order.total.toFixed(2)}</p>
+                    <div style="margin-top: 15px; max-height: 200px; overflow-y: auto;">
+                        ${order.items.map(item => `
+                            <div style="border-bottom: 1px solid #eee; padding: 8px 0;">
+                                <strong>${item.name}</strong><br>
+                                <small>Qty: ${item.quantity} × R${item.price.toFixed(2)} = R${item.total.toFixed(2)}</small>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                <div style="display: flex; gap: 15px; justify-content: center; margin-top: 25px;">
+                    <button id="proceed-demo" style="
+                        background: #4caf50;
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 25px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 16px;
+                    ">
+                        <i class="fas fa-arrow-right"></i> See Success Page
+                    </button>
+                    <button id="cancel-demo" style="
+                        background: #666;
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 25px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 16px;
+                    ">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        modal.querySelector('#proceed-demo').addEventListener('click', () => {
+            document.body.removeChild(modal);
+            callback();
+        });
+        
+        modal.querySelector('#cancel-demo').addEventListener('click', () => {
+            document.body.removeChild(modal);
+            safeStorage.removeItem('completedOrder');
+        });
+    }
+
+    function showDemoSuccessModal(orderId, paymentStatus, paymentId, orderData) {
+        const successModal = document.createElement('div');
+        successModal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 2rem;
+        `;
+        
+        let orderSummaryHTML = '';
+        if (orderData && orderData.items && orderData.items.length > 0) {
+            orderSummaryHTML = `
+                <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 10px; margin: 2rem 0; text-align: left;">
+                    <div style="font-weight: 700; color: #2e7d32; margin-bottom: 1rem; font-size: 1.2rem; text-align: center;">
+                        <i class="fas fa-receipt"></i> Order Summary
+                    </div>
+                    ${orderData.items.map(item => `
+                        <div style="display: flex; justify-content: space-between; padding: 0.8rem 0; border-bottom: 1px solid #e0e0e0;">
+                            <div><strong>${item.name}</strong><br><small>Qty: ${item.quantity} × R${item.price.toFixed(2)}</small></div>
+                            <div style="font-weight: 600;">R${(item.price * item.quantity).toFixed(2)}</div>
+                        </div>
+                    `).join('')}
+                    <div style="display: flex; justify-content: space-between; padding: 1rem 0 0; font-weight: 700; font-size: 1.3rem; color: #2e7d32; border-top: 2px solid #2e7d32; margin-top: 1rem;">
+                        <span>Total (Demo):</span><span>R${orderData.total.toFixed(2)}</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        successModal.innerHTML = `
+            <div style="background: white; padding: 3rem 2rem; border-radius: 20px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.2); max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto;">
+                <div style="font-size: 4rem; margin-bottom: 1.5rem;">🎉</div>
+                <h1 style="font-size: 2.5rem; color: #2e7d32; margin-bottom: 1rem; font-family: 'Lora', serif;">Demo Purchase Complete!</h1>
+                <div style="background: #e3f2fd; padding: 1.5rem; border-radius: 10px; margin: 1.5rem 0; border-left: 4px solid #2196f3;">
+                    <h4 style="color: #1565c0; margin-bottom: 10px;">
+                        <i class="fas fa-info-circle"></i> Demo Mode
+                    </h4>
+                    <p style="color: #1976d2; margin: 0; font-size: 0.95rem;">
+                        This is a demonstration of the post-purchase experience. In a real transaction, 
+                        customers would receive email confirmations and their items would be prepared for shipping.
+                    </p>
+                </div>
+                <p style="color: #666; margin-bottom: 2rem; line-height: 1.6; font-size: 1.1rem;">
+                    This demonstrates the complete purchase flow. Customers would receive order confirmation 
+                    and tracking information via email.
+                </p>
+                <div style="background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 1rem; margin: 1rem 0;">
+                    <strong>Demo Order Reference:</strong>
+                    <div style="font-family: monospace; background: #f5f5f5; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0;">${orderId}</div>
+                    <strong>Demo Payment ID:</strong>
+                    <div style="font-family: monospace; background: #f5f5f5; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0;">${paymentId}</div>
+                </div>
+                ${orderSummaryHTML}
+                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem;">
+                    <a href="index.html" style="padding: 1rem 2rem; background: #4caf50; color: white; text-decoration: none; border-radius: 25px; font-weight: 600;">
+                        <i class="fas fa-home"></i> Back to Home
+                    </a>
+                    <button onclick="continueDemoShopping()" style="padding: 1rem 2rem; background: #e0e0e0; color: #333; border: none; border-radius: 25px; cursor: pointer; font-weight: 600;">
+                        <i class="fas fa-shopping-bag"></i> Continue Shopping
+                    </button>
+                    <a href="care-tips.html" style="padding: 1rem 2rem; background: #e0e0e0; color: #333; text-decoration: none; border-radius: 25px; font-weight: 600;">
+                        <i class="fas fa-leaf"></i> Care Tips
+                    </a>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(successModal);
+        
+        window.continueDemoShopping = function() {
+            successModal.remove();
+            clearCartAndOrderData();
+            if (isShopPage()) {
+                location.reload();
+            } else {
+                window.location.href = 'shop.html';
+            }
+        };
+        
+        setTimeout(() => {
+            clearCartAndOrderData();
+        }, 2000);
+    }
+
+    function clearCartAndOrderData() {
+        console.log('Clearing cart and order data after successful purchase');
+        safeStorage.removeItem('completedOrder');
+        safeStorage.removeItem('pendingOrder');
+        
+        // Only clear cart after successful purchase
+        cartItems = [];
+        cartItemCount = 0;
+        currentDeliveryCost = 0;
+        deliveryAddress = null;
+        updateCartDisplay();
+        saveCartToStorage();
+        
+        console.log('Cart and order data cleared after purchase');
+    }
+
+    // ===== INITIALIZATION =====
+    
+    // Initialize cart immediately and persistently
+    initializeCart();
+    
+    // FIXED: Add periodic cart validation (every 30 seconds)
+    setInterval(() => {
+        if (cartItems.length > 0) {
+            console.log('Periodic cart validation - items:', cartItems.length);
+            saveCartToStorage(); // Ensure cart is always saved
+        }
+    }, 30000);
+
+    // FIXED: Add page visibility change handler to save cart
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && cartItems.length > 0) {
+            console.log('Page becoming hidden, saving cart...');
+            saveCartToStorage();
+        } else if (!document.hidden) {
+            console.log('Page becoming visible, reloading cart...');
+            loadCartFromStorage();
+        }
+    });
+
+    // FIXED: Add beforeunload handler to ensure cart is saved
+    window.addEventListener('beforeunload', () => {
+        if (cartItems.length > 0) {
+            saveCartToStorage();
+            console.log('Page unloading, cart saved');
+        }
+    });
+
+    // Load initial user session
+    try {
+        const userData = safeStorage.getItem('currentUser');
+        const currentUser = userData ? JSON.parse(userData) : null;
+        if (currentUser) {
+            updateAuthUI(currentUser);
+        }
+    } catch (error) {
+        console.warn('Failed to load current user:', error);
+    }
+
+    // Initialize delivery when cart items are loaded
+    setTimeout(() => {
+        if (cartItems.length > 0) {
+            addDeliverySection();
+        }
+    }, 1500);
+
+    // Attach cart buy button handler
+    setTimeout(() => {
+        let buyButton = document.querySelector('.btn-buy');
+        if (!buyButton) {
+            const cart = document.querySelector('.cart');
+            if (cart) {
+                const totalSection = cart.querySelector('.total');
+                if (totalSection && !cart.querySelector('.btn-buy')) {
+                    buyButton = document.createElement('button');
+                    buyButton.className = 'btn-buy';
+                    buyButton.innerHTML = '<i class="fas fa-credit-card"></i> Checkout (PayFast Demo)';
+                    buyButton.style = 'width:100%;margin-top:1.5rem;padding:1rem 0;font-size:1.2rem;background:var(--primary-color);color:white;border:none;border-radius:30px;font-weight:700;cursor:pointer;';
+                    totalSection.appendChild(buyButton);
+                }
+            }
+        }
+        if (buyButton) {
+            buyButton.onclick = function(e) {
+                e.preventDefault();
+                processDemoPayment();
+            };
+        }
+    }, 1000);
+
+    // Load page-specific content
+    if (window.location.pathname.includes('courses.html')) {
+        loadCoursesPage();
+    } else if (window.location.pathname.includes('care-tips.html')) {
+        loadCareTipsPage();
+    } else {
+        // Home page - load featured content
+        loadFeaturedProducts();
+        loadFeaturedCourses();
+    }
+
+    console.log('Complete FIXED scripts-firebase.js loaded successfully with PERSISTENT CART, AGE + WEIGHT SYSTEM, DEMO PayFast integration, and DELIVERY CALCULATOR');
+});
+
+// Additional functions for courses page
+function loadCoursesPage() {
+    console.log('Loading courses page');
+    const coursesContent = document.querySelector('#courses-content');
+    if (!coursesContent) return;
+
+    if (!firebase || !db) {
+        coursesContent.innerHTML = '<p>Courses temporarily unavailable. Please try again later.</p>';
+        return;
+    }
+
+    coursesContent.innerHTML = '<p>Loading courses...</p>';
+
+    db.collection('courses').get()
+        .then((snapshot) => {
+            if (snapshot.empty) {
+                coursesContent.innerHTML = '<p>No courses available yet. Admin can add courses from the admin panel.</p>';
+                return;
+            }
+            
+            const coursesByCategory = {};
+            const allCourses = [];
+            
+            snapshot.forEach(doc => {
+                const course = { id: doc.id, ...doc.data() };
+                
+                if (!course.title || !course.description || !course.image) {
+                    console.warn('Skipping invalid course:', doc.id);
+                    return;
+                }
+                
+                if (!course.image.startsWith('data:image') && 
+                    !course.image.startsWith('http') && 
+                    !course.image.startsWith('Fotos/')) {
+                    console.warn('Skipping course with invalid image:', doc.id);
+                    return;
+                }
+
+                allCourses.push(course);
+                
+                const category = course.category || 'general';
+                if (!coursesByCategory[category]) {
+                    coursesByCategory[category] = [];
+                }
+                coursesByCategory[category].push(course);
+            });
+
+            if (Object.keys(coursesByCategory).length === 0) {
+                coursesContent.innerHTML = '<p>No courses available yet. Admin can add courses from the admin panel.</p>';
+                return;
+            }
+
+            let coursesHTML = '';
+            
+            Object.keys(coursesByCategory).sort().forEach(category => {
+                const categoryName = category.split('-').map(word => 
+                    word.charAt(0).toUpperCase() + word.slice(1)
+                ).join(' ');
+                
+                coursesHTML += `
+                    <div class="tips-category">
+                        <h2 class="category-title">${categoryName}</h2>
+                        <div class="tips-grid">
+                `;
+                
+                coursesByCategory[category].forEach(course => {
+                    const shortDescription = course.description.length > 150 
+                        ? course.description.substring(0, 150) + '...' 
+                        : course.description;
+                        
+                    coursesHTML += `
+                        <div class="tip-card course-card-clickable" onclick="openCourseModal('${course.id}')" style="cursor: pointer; transition: all 0.3s ease;">
+                            <div class="tip-img">
+                                <img src="${course.image}" alt="${course.title}" onerror="this.src='Fotos/Bonsai-wall.jpg'">
+                            </div>
+                            <div class="tip-content">
+                                <h3>${course.title}</h3>
+                                <p>${shortDescription}</p>
+                                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eee;">
+                                    <strong>Price: R${course.price}</strong><br>
+                                    <strong>Duration: ${course.duration} hours</strong><br>
+                                    <span style="color: var(--primary-color); font-weight: 600;">${course.level.charAt(0).toUpperCase() + course.level.slice(1)} Level</span>
+                                </div>
+                                <div style="margin-top: 1rem; text-align: center;">
+                                    <span style="
+                                        background: var(--primary-color);
+                                        color: white;
+                                        padding: 0.5rem 1rem;
+                                        border-radius: 20px;
+                                        font-size: 0.9rem;
+                                        font-weight: 600;
+                                    ">
+                                        <i class="fas fa-info-circle"></i> Click for Details
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                coursesHTML += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            coursesContent.innerHTML = coursesHTML;
+            
+            window.coursesData = allCourses;
+            addCourseCardHoverEffects();
+        })
+        .catch(error => {
+            console.error('Error getting courses:', error);
+            coursesContent.innerHTML = '<p>Error loading courses. Please try again later.</p>';
+        });
+}
+
+function addCourseCardHoverEffects() {
+    const courseCards = document.querySelectorAll('.course-card-clickable');
+    courseCards.forEach(card => {
+        card.addEventListener('mouseenter', () => {
+            card.style.transform = 'translateY(-8px) scale(1.02)';
+            card.style.boxShadow = '0 15px 35px rgba(46, 125, 50, 0.2)';
+        });
+        
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = 'translateY(-5px) scale(1)';
+            card.style.boxShadow = '0 10px 25px rgba(0,0,0,0.15)';
+        });
+    });
+}
+
+window.openCourseModal = function(courseId) {
+    console.log('Opening course modal for:', courseId);
+    
+    if (!window.coursesData) {
+        alert('Course data not available. Please try again.');
+        return;
+    }
+    
+    const course = window.coursesData.find(c => c.id === courseId);
+    if (!course) {
+        alert('Course not found.');
+        return;
+    }
+    
+    createCourseModal(course);
+};
+
+function createCourseModal(course) {
+    const existingModal = document.getElementById('course-detail-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'course-detail-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        padding: 1rem;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    `;
+    
+    const categoryDisplay = course.category ? course.category.split('-').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ') : 'General';
+    
+    modal.innerHTML = `
+        <div style="
+            background: white;
+            border-radius: 20px;
+            max-width: 700px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            transform: translateY(30px) scale(0.9);
+            transition: all 0.3s ease;
+        " id="modal-content">
+            <div style="
+                position: relative;
+                height: 250px;
+                background: linear-gradient(135deg, rgba(46, 125, 50, 0.9), rgba(27, 94, 32, 0.9)), url('${course.image}') center/cover;
+                border-radius: 20px 20px 0 0;
+                display: flex;
+                align-items: end;
+                padding: 2rem;
+                color: white;
+            ">
+                <button onclick="closeCourseModal()" style="
+                    position: absolute;
+                    top: 1rem;
+                    right: 1rem;
+                    background: rgba(255, 255, 255, 0.2);
+                    border: none;
+                    color: white;
+                    font-size: 1.5rem;
+                    cursor: pointer;
+                    padding: 0.5rem;
+                    border-radius: 50%;
+                    width: 40px;
+                    height: 40px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.3s;
+                    backdrop-filter: blur(10px);
+                " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                    <i class="fas fa-times"></i>
+                </button>
+                <div>
+                    <div style="
+                        background: rgba(255, 255, 255, 0.2);
+                        padding: 0.3rem 0.8rem;
+                        border-radius: 15px;
+                        font-size: 0.9rem;
+                        margin-bottom: 0.5rem;
+                        backdrop-filter: blur(10px);
+                        display: inline-block;
+                    ">
+                        ${categoryDisplay}
+                    </div>
+                    <h2 style="margin: 0; font-size: 2rem; font-family: 'Lora', serif; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                        ${course.title}
+                    </h2>
+                </div>
+            </div>
+            
+            <div style="padding: 2rem;">
+                <div style="
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                    gap: 1rem;
+                    margin-bottom: 2rem;
+                ">
+                    <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 10px;">
+                        <div style="color: var(--primary-color); font-size: 1.5rem; margin-bottom: 0.5rem;">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <div style="font-weight: 700; font-size: 1.2rem; color: var(--primary-color);">R${course.price}</div>
+                        <div style="font-size: 0.9rem; color: #666;">Price</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 10px;">
+                        <div style="color: var(--primary-color); font-size: 1.5rem; margin-bottom: 0.5rem;">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div style="font-weight: 700; font-size: 1.2rem; color: var(--primary-color);">${course.duration}h</div>
+                        <div style="font-size: 0.9rem; color: #666;">Duration</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 10px;">
+                        <div style="color: var(--primary-color); font-size: 1.5rem; margin-bottom: 0.5rem;">
+                            <i class="fas fa-graduation-cap"></i>
+                        </div>
+                        <div style="font-weight: 700; font-size: 1.2rem; color: var(--primary-color);">${course.level.charAt(0).toUpperCase() + course.level.slice(1)}</div>
+                        <div style="font-size: 0.9rem; color: #666;">Level</div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 2rem;">
+                    <h3 style="color: var(--primary-color); margin-bottom: 1rem; font-size: 1.3rem;">
+                        <i class="fas fa-info-circle"></i> About This Course
+                    </h3>
+                    <p style="
+                        color: #555;
+                        line-height: 1.8;
+                        font-size: 1rem;
+                        text-align: justify;
+                        background: #f8f9fa;
+                        padding: 1.5rem;
+                        border-radius: 10px;
+                        border-left: 4px solid var(--primary-color);
+                    ">
+                        ${course.description}
+                    </p>
+                </div>
+                
+                <div style="
+                    background: linear-gradient(135deg, var(--primary-color), var(--green-dark));
+                    color: white;
+                    padding: 2rem;
+                    border-radius: 15px;
+                    text-align: center;
+                    margin-bottom: 1rem;
+                ">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 1.4rem;">
+                        <i class="fas fa-comments"></i> Ready to Start Learning?
+                    </h3>
+                    <p style="margin: 0 0 1.5rem 0; opacity: 0.9; font-size: 1rem;">
+                        Chat with us on WhatsApp to book this course or ask any questions!
+                    </p>
+                    <a href="https://wa.me/27123456789?text=Hi%20Teien%20Tamashii,%20I'm%20interested%20in%20the%20${encodeURIComponent(course.title)}%20course.%20Can%20you%20provide%20more%20information%20about%20booking%20and%20schedule?" 
+                       target="_blank"
+                       style="
+                           display: inline-flex;
+                           align-items: center;
+                           gap: 0.8rem;
+                           background: #25D366;
+                           color: white;
+                           padding: 1rem 2rem;
+                           border-radius: 30px;
+                           text-decoration: none;
+                           font-weight: 700;
+                           font-size: 1.1rem;
+                           transition: all 0.3s ease;
+                           box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
+                       "
+                       onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(37, 211, 102, 0.4)'"
+                       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(37, 211, 102, 0.3)'"
+                    >
+                        <i class="fab fa-whatsapp" style="font-size: 1.3rem;"></i>
+                        Chat on WhatsApp
+                    </a>
+                    <div style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.8;">
+                        Available Monday - Friday, 9AM - 5PM
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    setTimeout(() => {
+        modal.style.opacity = '1';
+        const content = modal.querySelector('#modal-content');
+        content.style.transform = 'translateY(0) scale(1)';
+    }, 10);
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeCourseModal();
+        }
+    });
+}
+
+window.closeCourseModal = function() {
+    const modal = document.getElementById('course-detail-modal');
+    if (modal) {
+        modal.style.opacity = '0';
+        const content = modal.querySelector('#modal-content');
+        content.style.transform = 'translateY(30px) scale(0.9)';
+        
+        setTimeout(() => {
+            modal.remove();
+        }, 300);
+    }
+};
+
+function loadCareTipsPage() {
+    console.log('Loading static care tips page');
+    const tipsContent = document.querySelector('#tips-content');
+    if (!tipsContent) return;
+
+    const staticTipsHTML = `
+        <div class="tips-category">
+            <h2 class="category-title">Watering</h2>
+            <div class="tips-grid">
+                <div class="tip-card">
+                    <div class="tip-img">
+                        <img src="Fotos/Bonsai-watering.webp" alt="Proper Watering Technique">
+                    </div>
+                    <div class="tip-content">
+                        <h3>Proper Watering Technique</h3>
+                        <p>Water your bonsai when the soil feels slightly dry to the touch. Always water thoroughly until water drains from the drainage holes. For most bonsai, it's better to underwater than overwater. In hot weather, you may need to water daily, while in winter, reduce watering frequency.</p>
+                    </div>
+                </div>
+                <div class="tip-card">
+                    <div class="tip-img">
+                        <img src="Fotos/Bonsai-watering.webp" alt="Watering Schedule">
+                    </div>
+                    <div class="tip-content">
+                        <h3>Watering Schedule</h3>
+                        <p>Check your bonsai's soil moisture daily by inserting your finger about an inch into the soil. If it feels dry, it's time to water. Different species and seasons require different watering frequencies, so adapt your schedule accordingly.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tips-category">
+            <h2 class="category-title">Pruning</h2>
+            <div class="tips-grid">
+                <div class="tip-card">
+                    <div class="tip-img">
+                        <img src="Fotos/Bonsai-Pruning.webp" alt="Pruning for Shape">
+                    </div>
+                    <div class="tip-content">
+                        <h3>Pruning for Shape</h3>
+                        <p>Regular pruning is essential for maintaining the shape of your bonsai. Use sharp, clean bonsai shears to make precise cuts. Remove any dead branches, crossed branches, or growth that disrupts the desired shape. For deciduous trees, heavy pruning is best done in late winter or early spring.</p>
+                    </div>
+                </div>
+                <div class="tip-card">
+                    <div class="tip-img">
+                        <img src="Fotos/Bonsai-Pruning.webp" alt="Maintenance Pruning">
+                    </div>
+                    <div class="tip-content">
+                        <h3>Maintenance Pruning</h3>
+                        <p>Pinch or cut new growth regularly to maintain your bonsai's shape. Remove any shoots growing straight up or down, and thin out areas that become too dense. This encourages back-budding and keeps your tree healthy and well-proportioned.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tips-category">
+            <h2 class="category-title">Soil</h2>
+            <div class="tips-grid">
+                <div class="tip-card">
+                    <div class="tip-img">
+                        <img src="Fotos/Bonsai-Soil.avif" alt="Choosing the Right Soil">
+                    </div>
+                    <div class="tip-content">
+                        <h3>Choosing the Right Soil</h3>
+                        <p>Bonsai soil needs to drain well while still retaining some moisture. A good mix typically contains akadama (clay), pumice, and lava rock. Different species may require slightly different soil compositions. Never use regular potting soil as it retains too much water and can lead to root rot.</p>
+                    </div>
+                </div>
+                <div class="tip-card">
+                    <div class="tip-img">
+                        <img src="Fotos/Bonsai-Soil.avif" alt="Repotting">
+                    </div>
+                    <div class="tip-content">
+                        <h3>Repotting</h3>
+                        <p>Repot your bonsai every 1-3 years depending on the species and age. Young trees need repotting more frequently than mature ones. Look for roots circling the pot or growing out of drainage holes as signs it's time to repot. Spring is typically the best time for repotting.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tips-category">
+            <h2 class="category-title">General Care</h2>
+            <div class="tips-grid">
+                <div class="tip-card">
+                    <div class="tip-img">
+                        <img src="Fotos/Bonsai-wall.jpg" alt="Light Requirements">
+                    </div>
+                    <div class="tip-content">
+                        <h3>Light Requirements</h3>
+                        <p>Most bonsai trees need plenty of bright, indirect light. Outdoor species should be kept outside year-round in most climates, while indoor species can thrive near a bright window. Rotate your bonsai regularly to ensure even light exposure on all sides.</p>
+                    </div>
+                </div>
+                <div class="tip-card">
+                    <div class="tip-img">
+                        <img src="Fotos/Bonsai-wall.jpg" alt="Fertilizing">
+                    </div>
+                    <div class="tip-content">
+                        <h3>Fertilizing</h3>
+                        <p>Feed your bonsai regularly during the growing season with a balanced, diluted fertilizer. Use organic fertilizers like fish emulsion or specialized bonsai fertilizers. Reduce or stop feeding during winter when growth slows. Over-fertilizing can lead to excessive growth and weak branches.</p>
+                    </div>
+                </div>
+                <div class="tip-card">
+                    <div class="tip-img">
+                        <img src="Fotos/Bonsai-wall.jpg" alt="Wiring">
+                    </div>
+                    <div class="tip-content">
+                        <h3>Wiring Techniques</h3>
+                        <p>Use aluminum or copper wire to shape branches and trunk. Wrap the wire at a 45-degree angle, not too tight to allow for growth. Remove wire before it cuts into the bark, typically after 3-6 months. Wire during the dormant season for best results.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    tipsContent.innerHTML = staticTipsHTML;
+}
