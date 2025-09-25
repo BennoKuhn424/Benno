@@ -1407,8 +1407,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let tableHTML = '';
         orders.forEach(order => {
-            const date = new Date(order.timestamp).toLocaleDateString();
-            const time = new Date(order.timestamp).toLocaleTimeString();
+            const date = order.timestamp ? new Date(order.timestamp).toLocaleDateString() : 'N/A';
+            const time = order.timestamp ? new Date(order.timestamp).toLocaleTimeString() : '';
             
             // Format items summary
             let itemsSummary = 'N/A';
@@ -1418,18 +1418,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     itemsSummary = `${order.items[0].name} +${order.items.length - 1} more`;
                 }
+            } else if (order.cart && order.cart.length > 0) {
+                // Fallback for old order structure
+                if (order.cart.length === 1) {
+                    itemsSummary = order.cart[0].title || order.cart[0].name || 'Item';
+                } else {
+                    itemsSummary = `${order.cart[0].title || order.cart[0].name || 'Item'} +${order.cart.length - 1} more`;
+                }
             }
 
             // Format delivery info
-            const deliveryInfo = order.deliveryAddress ? 
-                `${order.deliveryAddress.city}, ${order.deliveryAddress.province}` : 
-                'No delivery';
-            
-            const shippingCost = order.shippingCost || order.shippingDetails?.shippingCost || 0;
+            let deliveryInfo = 'N/A';
+            let shippingCost = 0;
+
+            if (order.deliveryMethod === 'pickup') {
+                deliveryInfo = 'Pickup (Free)';
+                shippingCost = 0;
+            } else if (order.deliveryDetails) {
+                deliveryInfo = `${order.deliveryDetails.city || order.deliveryDetails.address || 'Delivery'}`;
+                shippingCost = order.deliveryDetails.cost || order.shippingCost || 0;
+            } else if (order.deliveryAddress) {
+                deliveryInfo = `${order.deliveryAddress.city}, ${order.deliveryAddress.province}`;
+                shippingCost = order.shippingCost || order.shippingDetails?.shippingCost || 0;
+            } else if (order.delivery && (order.delivery.city || order.delivery.address)) {
+                deliveryInfo = `${order.delivery.city || order.delivery.address}`;
+                shippingCost = order.shippingCost || 0;
+            }
+
+            const itemCount = order.items ? order.items.length : (order.cart ? order.cart.length : 0);
 
             tableHTML += `
                 <tr>
-                    <td><span class="order-id">${order.orderId || 'N/A'}</span></td>
+                    <td><span class="order-id">${order.orderId || order.id || 'N/A'}</span></td>
                     <td>
                         <div>${date}</div>
                         <small style="color: #666;">${time}</small>
@@ -1441,7 +1461,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </td>
                     <td>
                         <div class="order-items">${itemsSummary}</div>
-                        <small style="color: #666;">${order.items ? order.items.length : 0} item(s)</small>
+                        <small style="color: #666;">${itemCount} item(s)</small>
                     </td>
                     <td>
                         <div class="delivery-location">
@@ -1538,62 +1558,139 @@ document.addEventListener('DOMContentLoaded', () => {
 
             <div class="detail-section">
                 <h4><i class="fas fa-truck"></i> Delivery Information</h4>
-                ${order.deliveryAddress ? `
-                    <div class="delivery-address-card">
-                        <div class="address-details">
-                            <p><strong>Address:</strong> ${order.deliveryAddress.fullAddress || 'Address not available'}</p>
-                            <div class="delivery-stats">
-                                <div class="stat-item">
-                                    <span class="stat-label">Zone:</span>
-                                    <span class="stat-value">${order.deliveryAddress.deliveryZone || 'Unknown'}</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">Estimated Time:</span>
-                                    <span class="stat-value">${order.deliveryAddress.estimatedDeliveryTime || 'N/A'}</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">Total Weight:</span>
-                                    <span class="stat-value">${order.shippingDetails?.totalWeight || order.totalWeight || 0}kg</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">Shipping Cost:</span>
-                                    <span class="stat-value">R${order.shippingDetails?.shippingCost?.toFixed(2) || order.shippingCost?.toFixed(2) || '0.00'}</span>
-                                </div>
-                            </div>
+                <div class="detail-grid">
+                    ${order.deliveryMethod === 'pickup' ? `
+                        <div class="detail-item">
+                            <span class="detail-label">Method</span>
+                            <span class="detail-value"><i class="fas fa-hand-holding"></i> Pickup (Free)</span>
                         </div>
-                    </div>
-                ` : `
-                    <div class="no-delivery-info">
-                        <p><i class="fas fa-info-circle"></i> No delivery information provided for this order.</p>
-                    </div>
-                `}
+                        <div class="detail-item">
+                            <span class="detail-label">Pickup Address</span>
+                            <span class="detail-value">1309 Cunningham Ave, Waverley, Pretoria, 0186</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Hours</span>
+                            <span class="detail-value">Mon-Fri 9AM-5PM, Sat 9AM-1PM</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Shipping Cost</span>
+                            <span class="detail-value">R0.00</span>
+                        </div>
+                    ` : order.deliveryDetails ? `
+                        <div class="detail-item">
+                            <span class="detail-label">Method</span>
+                            <span class="detail-value"><i class="fas fa-truck"></i> Delivery</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Address</span>
+                            <span class="detail-value">${order.deliveryDetails.address || 'N/A'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">City</span>
+                            <span class="detail-value">${order.deliveryDetails.city || 'N/A'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Province</span>
+                            <span class="detail-value">${order.deliveryDetails.province || 'N/A'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Postal Code</span>
+                            <span class="detail-value">${order.deliveryDetails.postalCode || 'N/A'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Shipping Cost</span>
+                            <span class="detail-value">R${(order.deliveryDetails.cost || order.shippingCost || 0).toFixed(2)}</span>
+                        </div>
+                    ` : order.deliveryAddress ? `
+                        <div class="detail-item">
+                            <span class="detail-label">Method</span>
+                            <span class="detail-value"><i class="fas fa-truck"></i> Delivery</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Address</span>
+                            <span class="detail-value">${order.deliveryAddress.address || order.deliveryAddress.fullAddress || 'N/A'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">City</span>
+                            <span class="detail-value">${order.deliveryAddress.city || 'N/A'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Province</span>
+                            <span class="detail-value">${order.deliveryAddress.province || 'N/A'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Shipping Cost</span>
+                            <span class="detail-value">R${(order.shippingCost || order.shippingDetails?.shippingCost || 0).toFixed(2)}</span>
+                        </div>
+                    ` : `
+                        <div class="detail-item">
+                            <span class="detail-label">Method</span>
+                            <span class="detail-value">Not specified</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Shipping Cost</span>
+                            <span class="detail-value">R0.00</span>
+                        </div>
+                    `}
+                </div>
             </div>
 
             <div class="detail-section">
-                <h4><i class="fas fa-shopping-bag"></i> Order Items</h4>
-        `;
+                <h4><i class="fas fa-shopping-bag"></i> Order Items</h4>`;
 
         if (order.items && order.items.length > 0) {
             orderDetailsHTML += '<div class="order-items-list">';
             order.items.forEach(item => {
-                const itemTotal = (item.price * item.quantity).toFixed(2);
+                const itemTotal = ((item.price || 0) * (item.quantity || 1)).toFixed(2);
                 orderDetailsHTML += `
                     <div class="order-item-card">
-                        <div class="item-details">
-                            <div class="item-name"><strong>${item.name}</strong></div>
-                            <div class="item-meta">
-                                <span>Qty: ${item.quantity}</span>
-                                <span>Unit Price: R${item.price.toFixed(2)}</span>
-                                ${item.variantId ? `<span>ID: ${item.variantId}</span>` : ''}
+                        <img src="${item.image || 'https://via.placeholder.com/80x80?text=No+Image'}" 
+                             alt="${item.name || 'Product'}" 
+                             class="order-item-image"
+                             onerror="this.src='https://via.placeholder.com/80x80?text=No+Image'">
+                        <div class="order-item-details">
+                            <div class="order-item-name">${item.name || 'Product'}</div>
+                            <div class="order-item-meta">
+                                <span><i class="fas fa-hashtag"></i> Qty: ${item.quantity || 1}</span>
+                                <span><i class="fas fa-tag"></i> Unit: R${(item.price || 0).toFixed(2)}</span>
+                                ${item.age ? `<span><i class="fas fa-calendar-alt"></i> Age: ${item.age}</span>` : ''}
+                                ${item.weight ? `<span><i class="fas fa-weight"></i> Weight: ${item.weight}</span>` : ''}
+                                ${item.variantId ? `<span><i class="fas fa-barcode"></i> ID: ${item.variantId}</span>` : ''}
                             </div>
                         </div>
-                        <div class="item-total">R${itemTotal}</div>
+                        <div class="order-item-total">R${itemTotal}</div>
+                    </div>
+                `;
+            });
+            orderDetailsHTML += '</div>';
+        } else if (order.cart && order.cart.length > 0) {
+            // Fallback for old order structure
+            orderDetailsHTML += '<div class="order-items-list">';
+            order.cart.forEach(item => {
+                const itemTotal = ((item.price || 0) * (item.quantity || 1)).toFixed(2);
+                orderDetailsHTML += `
+                    <div class="order-item-card">
+                        <img src="${item.image || 'https://via.placeholder.com/80x80?text=No+Image'}" 
+                             alt="${item.name || item.title || 'Product'}" 
+                             class="order-item-image"
+                             onerror="this.src='https://via.placeholder.com/80x80?text=No+Image'">
+                        <div class="order-item-details">
+                            <div class="order-item-name">${item.name || item.title || 'Product'}</div>
+                            <div class="order-item-meta">
+                                <span><i class="fas fa-hashtag"></i> Qty: ${item.quantity || 1}</span>
+                                <span><i class="fas fa-tag"></i> Unit: R${(item.price || 0).toFixed(2)}</span>
+                                ${item.age ? `<span><i class="fas fa-calendar-alt"></i> Age: ${item.age}</span>` : ''}
+                                ${item.weight ? `<span><i class="fas fa-weight"></i> Weight: ${item.weight}</span>` : ''}
+                                ${item.variantId ? `<span><i class="fas fa-barcode"></i> ID: ${item.variantId}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="order-item-total">R${itemTotal}</div>
                     </div>
                 `;
             });
             orderDetailsHTML += '</div>';
         } else {
-            orderDetailsHTML += '<p style="color: #666; font-style: italic;">No items recorded for this order.</p>';
+            orderDetailsHTML += '<p style="color: #666; font-style: italic; text-align: center; padding: 2rem;"><i class="fas fa-inbox"></i> No items recorded for this order.</p>';
         }
 
         orderDetailsHTML += `
@@ -1608,7 +1705,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="breakdown-row shipping-row">
                         <span class="breakdown-label">Shipping Cost:</span>
-                        <span class="breakdown-value">R${(order.shippingCost || order.shippingDetails?.shippingCost || 0).toFixed(2)}</span>
+                        <span class="breakdown-value">R${(
+                            order.shippingCost || 
+                            order.deliveryDetails?.cost || 
+                            order.shippingDetails?.shippingCost || 
+                            0
+                        ).toFixed(2)}</span>
                     </div>
                     <div class="breakdown-row total-row">
                         <span class="breakdown-label">Total Paid:</span>

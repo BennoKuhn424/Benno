@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email System Test - Teien Tamashii</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .test-container { background: #f8f9fa; padding: 30px; border-radius: 10px; margin: 20px 0; }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; border: none; border-radius: 5px; }
+        .primary-btn { background: #007bff; color: white; }
+        .success-btn { background: #28a745; color: white; }
+        .warning-btn { background: #ffc107; color: black; }
+        .danger-btn { background: #dc3545; color: white; }
+        .test-result { margin: 20px 0; padding: 15px; border-radius: 5px; font-family: monospace; white-space: pre-wrap; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .code-block { background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Email System Testing</h1>
+    <p>Use this page to test the order confirmation email system.</p>
+
+    <div class="test-container">
+        <h2>Setup Test Environment</h2>
+        <button class="primary-btn" onclick="setupTestUser()">Create Test User</button>
+        <button class="primary-btn" onclick="setupTestCart()">Create Test Cart</button>
+        <button class="success-btn" onclick="setupTestOrder()">Setup Complete Test Order</button>
+        <button class="danger-btn" onclick="clearTestData()">Clear All Test Data</button>
+    </div>
+
+    <div class="test-container">
+        <h2>Email System Tests</h2>
+        <button class="success-btn" onclick="testEmailSending()">Test Email Sending</button>
+        <button class="primary-btn" onclick="testEmailContent()">Preview Email Content</button>
+        <button class="warning-btn" onclick="testFallbackMethod()">Test Fallback Method</button>
+        <button class="primary-btn" onclick="testDownloadReceipt()">Test Receipt Download</button>
+    </div>
+
+    <div class="test-container">
+        <h2>Data Inspection</h2>
+        <button class="primary-btn" onclick="inspectUserData()">Inspect User Data</button>
+        <button class="primary-btn" onclick="inspectCartData()">Inspect Cart Data</button>
+        <button class="primary-btn" onclick="inspectEmailHistory()">Check Email History</button>
+    </div>
+
+    <div id="test-output" class="test-result info">
+        Test results will appear here...
+    </div>
+
+    <div class="test-container">
+        <h2>Formspree Configuration</h2>
+        <p>To use the email system, you need to configure Formspree:</p>
+        <div class="code-block">
+1. Go to https://formspree.io and create an account
+2. Create a new form in your dashboard
+3. Copy your form endpoint (looks like: https://formspree.io/f/xvgpkqyw)
+4. Update success.html line ~400 and replace 'YOUR_FORMSPREE_ENDPOINT' with your form ID
+5. Test the email system using the buttons above
+        </div>
+        <p><strong>Current Endpoint:</strong> <code id="current-endpoint">Not configured</code></p>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const output = document.getElementById('test-output');
+            const timestamp = new Date().toLocaleTimeString();
+            output.className = `test-result ${type}`;
+            output.textContent = `[${timestamp}] ${message}`;
+        }
+
+        function setupTestUser() {
+            const testUser = {
+                id: 'test-user-' + Date.now(),
+                email: 'test@example.com',
+                username: 'Test Customer',
+                role: 'user'
+            };
+            localStorage.setItem('currentUser', JSON.stringify(testUser));
+            log('✓ Test user created:\nEmail: test@example.com\nUsername: Test Customer', 'success');
+        }
+
+        function setupTestCart() {
+            const testCart = [
+                {
+                    name: 'Juniper Bonsai (5 years, 2.5kg)',
+                    title: 'Juniper Bonsai',
+                    price: 450.00,
+                    quantity: 1,
+                    age: '5 years',
+                    weight: '2.5kg',
+                    image: 'Fotos/Juniper-Bonsai.jpg',
+                    variantId: 'juniper-001'
+                },
+                {
+                    name: 'Maple Bonsai (3 years, 1.8kg)',
+                    title: 'Maple Bonsai',
+                    price: 320.00,
+                    quantity: 2,
+                    age: '3 years',
+                    weight: '1.8kg',
+                    image: 'Fotos/Maple-Bonsai.jpg',
+                    variantId: 'maple-002'
+                }
+            ];
+            
+            const testDelivery = {
+                address: '123 Test Street',
+                city: 'Johannesburg',
+                province: 'Gauteng',
+                postalCode: '2000'
+            };
+
+            localStorage.setItem('cartItems', JSON.stringify(testCart));
+            localStorage.setItem('deliveryAddress', JSON.stringify(testDelivery));
+            localStorage.setItem('pickupSelected', 'false');
+            
+            log('✓ Test cart created:\n2 items, subtotal: R1090.00\nDelivery to Johannesburg', 'success');
+        }
+
+        function setupTestOrder() {
+            setupTestUser();
+            setupTestCart();
+            log('✓ Complete test environment ready!\nUser: test@example.com\nCart: 2 items\nDelivery: Johannesburg', 'success');
+        }
+
+        function clearTestData() {
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('cartItems');
+            localStorage.removeItem('deliveryAddress');
+            localStorage.removeItem('pickupSelected');
+            
+            // Clear email history
+            const emailKeys = Object.keys(localStorage).filter(key => key.startsWith('emailSent_'));
+            emailKeys.forEach(key => localStorage.removeItem(key));
+            localStorage.removeItem('pendingEmails');
+            
+            log('✓ All test data cleared', 'success');
+        }
+
+        function testEmailContent() {
+            try {
+                const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+                const cart = JSON.parse(localStorage.getItem('cartItems') || '[]');
+                const delivery = JSON.parse(localStorage.getItem('deliveryAddress') || '{}');
+                
+                if (!currentUser) {
+                    log('❌ No user found. Create test user first.', 'error');
+                    return;
+                }
+
+                let emailContent = `TO: ${currentUser.email}
+SUBJECT: Order Confirmation - ORDER_${Date.now()}
+
+Dear ${currentUser.username},
+
+Thank you for your purchase from Teien Tamashii!
+
+ORDER ITEMS:
+`;
+
+                if (cart.length > 0) {
+                    let subtotal = 0;
+                    cart.forEach((item, index) => {
+                        const itemTotal = item.price * item.quantity;
+                        subtotal += itemTotal;
+                        emailContent += `${index + 1}. ${item.name}
+   Quantity: ${item.quantity}
+   Price: R${item.price.toFixed(2)}
+   Subtotal: R${itemTotal.toFixed(2)}
+   
+`;
+                    });
+                    
+                    emailContent += `PRICING:
+Subtotal: R${subtotal.toFixed(2)}
+Shipping: R85.00
+Total: R${(subtotal + 85).toFixed(2)}
+
+DELIVERY:
+${delivery.address}, ${delivery.city}, ${delivery.province} ${delivery.postalCode}`;
+                } else {
+                    emailContent += 'No items in cart';
+                }
+
+                log('📧 Email Content Preview:\n\n' + emailContent, 'info');
+                
+            } catch (error) {
+                log('❌ Error generating email content: ' + error.message, 'error');
+            }
+        }
+
+        function testEmailSending() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+            if (!currentUser) {
+                log('❌ No user found. Create test user first.', 'error');
+                return;
+            }
+
+            log('🔄 Testing email sending...\n\nNOTE: This is a simulation. Real emails require Formspree configuration.\n\n✓ User email validated: ' + currentUser.email + '\n✓ Email content generated\n✓ Would send to Formspree endpoint\n\n⚠️ Configure Formspree to enable actual email sending', 'info');
+        }
+
+        function testFallbackMethod() {
+            log('🔄 Testing fallback method...\n\n✓ Fallback email record would be saved to localStorage\n✓ User would see contact instructions\n✓ Download receipt option would be available\n\nFallback method ready!', 'info');
+        }
+
+        function testDownloadReceipt() {
+            try {
+                // Simulate the download receipt function
+                const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+                const cart = JSON.parse(localStorage.getItem('cartItems') || '[]');
+                
+                if (!currentUser) {
+                    log('❌ No user found. Create test user first.', 'error');
+                    return;
+                }
+
+                let receiptContent = `TEIEN TAMASHII - ORDER RECEIPT
+=====================================
+Customer: ${currentUser.username}
+Email: ${currentUser.email}
+Date: ${new Date().toLocaleString()}
+`;
+
+                if (cart.length > 0) {
+                    let total = 0;
+                    receiptContent += '\nITEMS:\n';
+                    cart.forEach((item, index) => {
+                        const itemTotal = item.price * item.quantity;
+                        total += itemTotal;
+                        receiptContent += `${index + 1}. ${item.name} - R${itemTotal.toFixed(2)}\n`;
+                    });
+                    receiptContent += `\nTOTAL: R${total.toFixed(2)}`;
+                }
+
+                // Create download
+                const blob = new Blob([receiptContent], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `TeienTamashii_Test_Receipt_${Date.now()}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                log('✓ Receipt download test successful!\nFile should have downloaded automatically.', 'success');
+                
+            } catch (error) {
+                log('❌ Receipt download test failed: ' + error.message, 'error');
+            }
+        }
+
+        function inspectUserData() {
+            const userData = localStorage.getItem('currentUser');
+            if (userData) {
+                log('👤 Current User Data:\n' + JSON.stringify(JSON.parse(userData), null, 2), 'info');
+            } else {
+                log('❌ No user data found', 'error');
+            }
+        }
+
+        function inspectCartData() {
+            const cartData = localStorage.getItem('cartItems');
+            const deliveryData = localStorage.getItem('deliveryAddress');
+            const pickup = localStorage.getItem('pickupSelected');
+            
+            let output = '🛒 Cart & Delivery Data:\n\n';
+            
+            if (cartData) {
+                const cart = JSON.parse(cartData);
+                output += `Cart Items (${cart.length}):\n`;
+                cart.forEach((item, i) => {
+                    output += `${i + 1}. ${item.name} - R${item.price} x${item.quantity}\n`;
+                });
+            } else {
+                output += 'No cart data found\n';
+            }
+            
+            output += '\nDelivery: ';
+            if (pickup === 'true') {
+                output += 'Pickup selected';
+            } else if (deliveryData) {
+                const delivery = JSON.parse(deliveryData);
+                output += `${delivery.city || 'N/A'}, ${delivery.province || 'N/A'}`;
+            } else {
+                output += 'No delivery data';
+            }
+            
+            log(output, 'info');
+        }
+
+        function inspectEmailHistory() {
+            const emailKeys = Object.keys(localStorage).filter(key => key.startsWith('emailSent_'));
+            const pendingEmails = localStorage.getItem('pendingEmails');
+            
+            let output = '📧 Email History:\n\n';
+            
+            if (emailKeys.length > 0) {
+                output += 'Sent Emails:\n';
+                emailKeys.forEach(key => {
+                    output += `• ${key.replace('emailSent_', '')}\n`;
+                });
+            } else {
+                output += 'No sent email records\n';
+            }
+            
+            if (pendingEmails) {
+                const pending = JSON.parse(pendingEmails);
+                output += `\nPending Emails: ${pending.length}\n`;
+                pending.forEach((email, i) => {
+                    output += `${i + 1}. ${email.orderId} - ${email.customerEmail}\n`;
+                });
+            } else {
+                output += '\nNo pending email records';
+            }
+            
+            log(output, 'info');
+        }
+
+        // Check current Formspree endpoint
+        window.onload = function() {
+            // This would need to be updated to check the actual endpoint
+            document.getElementById('current-endpoint').textContent = 'YOUR_FORMSPREE_ENDPOINT (needs configuration)';
+            log('Email Testing System Ready\n\n1. Setup test data using buttons above\n2. Test email functionality\n3. Configure Formspree for live emails', 'info');
+        };
+    </script>
+</body>
+</html>

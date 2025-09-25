@@ -1,0 +1,33 @@
+{
+  "name": "teien-tamashii-server",
+  "version": "1.0.0",
+  "description": "Server-side components for Teien Tamashii e-commerce with PayFast ITN",
+  "main": "payfast-itn.js",
+  "scripts": {
+    "start": "node payfast-itn.js",
+    "dev": "nodemon payfast-itn.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "firebase-admin": "^11.11.1",
+    "crypto": "^1.0.1",
+    "https": "^1.0.0",
+    "querystring": "^1.2.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "payfast",
+    "ecommerce",
+    "firebase",
+    "itn",
+    "payment"
+  ],
+  "author": "Teien Tamashii",
+  "license": "ISC",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

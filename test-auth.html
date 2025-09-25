@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Authentication Flow</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .test-container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; border: none; border-radius: 5px; }
+        .test-btn { background: #007bff; color: white; }
+        .clear-btn { background: #dc3545; color: white; }
+        .status { margin: 20px 0; padding: 15px; border-radius: 5px; }
+        .status.authenticated { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.not-authenticated { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Authentication Test</h1>
+        <p>Use this page to test the authentication flow for cart checkout.</p>
+        
+        <div id="auth-status" class="status"></div>
+        
+        <button class="test-btn" onclick="checkAuth()">Check Authentication</button>
+        <button class="test-btn" onclick="simulateCartCheckout()">Simulate Cart Checkout</button>
+        <button class="clear-btn" onclick="clearAuth()">Clear Authentication</button>
+        <button class="test-btn" onclick="setTestUser()">Set Test User</button>
+        
+        <div id="test-result" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; font-family: monospace; white-space: pre-wrap;"></div>
+    </div>
+
+    <script>
+        function checkAuth() {
+            try {
+                const currentUserData = localStorage.getItem('currentUser');
+                const currentUser = currentUserData ? JSON.parse(currentUserData) : null;
+                
+                const statusDiv = document.getElementById('auth-status');
+                const resultDiv = document.getElementById('test-result');
+                
+                if (currentUser) {
+                    statusDiv.className = 'status authenticated';
+                    statusDiv.innerHTML = `✓ Authenticated as: ${currentUser.username} (${currentUser.email})`;
+                    resultDiv.textContent = `Authentication Status: PASSED\nUser ID: ${currentUser.id}\nUsername: ${currentUser.username}\nEmail: ${currentUser.email}\nRole: ${currentUser.role}`;
+                } else {
+                    statusDiv.className = 'status not-authenticated';
+                    statusDiv.innerHTML = '✗ Not authenticated';
+                    resultDiv.textContent = 'Authentication Status: FAILED\nUser must sign in to proceed with checkout.';
+                }
+            } catch (error) {
+                const statusDiv = document.getElementById('auth-status');
+                const resultDiv = document.getElementById('test-result');
+                statusDiv.className = 'status not-authenticated';
+                statusDiv.innerHTML = '✗ Authentication check failed';
+                resultDiv.textContent = `Authentication Status: ERROR\nError: ${error.message}`;
+            }
+        }
+
+        function simulateCartCheckout() {
+            const resultDiv = document.getElementById('test-result');
+            resultDiv.textContent = 'Simulating cart checkout process...\n\n';
+            
+            try {
+                const currentUserData = localStorage.getItem('currentUser');
+                const currentUser = currentUserData ? JSON.parse(currentUserData) : null;
+                
+                if (!currentUser) {
+                    resultDiv.textContent += 'CHECKOUT BLOCKED: User not authenticated\n';
+                    resultDiv.textContent += 'Action: Show sign-in modal\n';
+                    resultDiv.textContent += 'Expected behavior: User must sign in before proceeding\n';
+                    alert('Please sign in to continue with your purchase.');
+                    return;
+                }
+                
+                resultDiv.textContent += 'CHECKOUT ALLOWED: User is authenticated\n';
+                resultDiv.textContent += `User: ${currentUser.username} (${currentUser.email})\n`;
+                resultDiv.textContent += 'Action: Proceed to payment processing\n';
+                resultDiv.textContent += 'Expected behavior: Continue with PayFast checkout\n';
+                alert('Checkout would proceed for authenticated user: ' + currentUser.username);
+                
+            } catch (error) {
+                resultDiv.textContent += `CHECKOUT ERROR: ${error.message}\n`;
+                alert('Authentication error occurred during checkout');
+            }
+        }
+
+        function clearAuth() {
+            localStorage.removeItem('currentUser');
+            document.getElementById('test-result').textContent = 'Authentication cleared. User is now signed out.';
+            checkAuth();
+        }
+
+        function setTestUser() {
+            const testUser = {
+                id: 'test-user-123',
+                email: 'test@example.com',
+                username: 'TestUser',
+                role: 'user'
+            };
+            localStorage.setItem('currentUser', JSON.stringify(testUser));
+            document.getElementById('test-result').textContent = 'Test user set for authentication testing.';
+            checkAuth();
+        }
+
+        // Check authentication status on page load
+        window.onload = function() {
+            checkAuth();
+        };
+    </script>
+</body>
+</html>

@@ -115,6 +115,10 @@
                 return JSON.parse(localStorage.getItem('deliveryAddress')) || null;
             } catch { return null; }
         }
+        
+        function isPickupSelected() {
+            return localStorage.getItem('pickupSelected') === 'true';
+        }
 
         // --- Render Cart and Shipping ---
         function renderCart(cart, delivery) {
@@ -157,7 +161,11 @@
 
             // Calculate shipping
             let deliveryCost = 0, zone = 'N/A', estTime = 'N/A', location = 'N/A';
-            if (delivery) {
+            
+            // Check if pickup is selected
+            const pickupSelected = isPickupSelected();
+            
+            if (delivery && !pickupSelected) {
                 location = `${delivery.address || ''}, ${delivery.city || ''}, ${delivery.province || ''}`.replace(/,\s*,/g, ',').replace(/^,|,$/g, '');
                 const totalWeight = calculateTotalWeight(cart);
                 zone = determineDeliveryZone(delivery.city, delivery.province);
@@ -169,6 +177,13 @@
                     <div><strong>Zone:</strong> ${zone.charAt(0).toUpperCase() + zone.slice(1)}</div>
                     <div><strong>Estimated Time:</strong> ${estTime}</div>
                     <div><strong>Shipping Cost:</strong> R${deliveryCost.toFixed(2)}</div>
+                `;
+            } else if (pickupSelected) {
+                deliveryInfoDiv.style.display = 'block';
+                deliveryInfoDiv.innerHTML = `
+                    <div><strong>Collection Method:</strong> Pickup (Free)</div>
+                    <div><strong>Collection Address:</strong> 1309 Cunningham Ave, Waverley, Pretoria, 0186</div>
+                    <div><strong>Collection Hours:</strong> Mon-Fri 9AM-5PM, Sat 9AM-1PM</div>
                 `;
             } else {
                 deliveryInfoDiv.style.display = 'none';
@@ -189,7 +204,9 @@
 
             // Calculate shipping
             let deliveryCost = 0;
-            if (delivery) {
+            
+            // Only calculate delivery cost if pickup is not selected
+            if (delivery && !isPickupSelected()) {
                 const totalWeight = calculateTotalWeight(cart);
                 const zone = determineDeliveryZone(delivery.city, delivery.province);
                 deliveryCost = getDeliveryCost(totalWeight, zone);
@@ -202,14 +219,25 @@
             form.method = "post";
             form.target = "_blank";
 
+            // Generate unique order ID
+            const orderId = 'ORDER_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
             form.innerHTML = `
                 <input type="hidden" name="merchant_id" value="10000100">
                 <input type="hidden" name="merchant_key" value="46f0cd694581a">
                 <input type="hidden" name="amount" value="${total.toFixed(2)}">
                 <input type="hidden" name="item_name" value="${itemNames.slice(0, 100)}">
                 <input type="hidden" name="return_url" value="https://teientamashii.co.za/success.html">
-                <input type="hidden" name="cancel_url" value="https://teientamashii.co.za/cancel.html">
+                <input type="hidden" name="cancel_url" value="https://teientamashii.co.za/shop.html">
+                <input type="hidden" name="notify_url" value="https://teientamashii.co.za/payfast-itn">
+                <input type="hidden" name="m_payment_id" value="${orderId}">
+                <input type="hidden" name="custom_str1" value="${orderId}">
+                <input type="hidden" name="custom_str2" value="ecommerce">
+                <input type="hidden" name="custom_str3" value="${pickupSelected ? 'pickup' : 'delivery'}">
                 `;
+            
+            // Store order ID in localStorage for success page
+            localStorage.setItem('currentOrderId', orderId);
 
             document.body.appendChild(form);
             form.submit();
@@ -217,12 +245,47 @@
         }
 
         // --- Main ---
+        // Check authentication when page loads
+        try {
+            const currentUserData = localStorage.getItem('currentUser');
+            const currentUser = currentUserData ? JSON.parse(currentUserData) : null;
+            
+            if (!currentUser) {
+                alert('You must be signed in to access checkout. Redirecting to shop page...');
+                window.location.href = 'shop.html';
+                return;
+            }
+        } catch (error) {
+            console.error('Authentication check failed:', error);
+            alert('Authentication error. Redirecting to shop page...');
+            window.location.href = 'shop.html';
+            return;
+        }
+        
         const cart = loadCart();
         const delivery = loadDeliveryInfo();
+        const pickupSelected = isPickupSelected();
         renderCart(cart, delivery);
 
         document.getElementById('checkout-btn').onclick = function() {
-            submitSimplePayFastForm(cart, delivery);
+            // Check if user is signed in
+            try {
+                const currentUserData = localStorage.getItem('currentUser');
+                const currentUser = currentUserData ? JSON.parse(currentUserData) : null;
+                
+                if (!currentUser) {
+                    alert('Please sign in to complete your purchase. Redirecting to shop page...');
+                    window.location.href = 'shop.html';
+                    return;
+                }
+                
+                // User is authenticated, proceed with checkout
+                submitSimplePayFastForm(cart, delivery);
+            } catch (error) {
+                console.error('Authentication check failed:', error);
+                alert('Please sign in to complete your purchase. Redirecting to shop page...');
+                window.location.href = 'shop.html';
+            }
         };
     </script>
 </body>

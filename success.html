@@ -15,13 +15,16 @@
             background: linear-gradient(135deg, #4caf50, #2e7d32);
             color: white;
             text-align: center;
+            padding: 1rem;
         }
         .success-container {
             background: rgba(255, 255, 255, 0.1);
-            padding: 3rem;
+            padding: 2rem;
             border-radius: 20px;
             backdrop-filter: blur(10px);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            width: 100%;
         }
         .success-icon {
             font-size: 3rem;
@@ -40,8 +43,84 @@
         .order-details {
             background: rgba(255,255,255,0.15);
             border-radius: 10px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            color: #fff;
+            text-align: left;
+        }
+        .order-header {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid rgba(255,255,255,0.3);
+        }
+        .order-info-item {
+            background: rgba(255,255,255,0.1);
+            padding: 0.8rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .order-info-label {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            margin-bottom: 0.3rem;
+        }
+        .order-info-value {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        .order-items {
+            margin: 1.5rem 0;
+        }
+        .order-items h3 {
+            color: #fff;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+        .item-card {
+            background: rgba(255,255,255,0.2);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .item-image {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+        .item-details {
+            flex: 1;
+            text-align: left;
+        }
+        .item-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 0.3rem;
+        }
+        .item-quantity {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+        .item-price {
+            font-weight: bold;
+            color: #fff;
+            font-size: 1.2rem;
+        }
+        .delivery-info {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
             padding: 1rem;
             margin: 1rem 0;
+        }
+        .delivery-info h4 {
+            margin: 0 0 0.5rem 0;
             color: #fff;
         }
         .manual-link {
@@ -59,10 +138,46 @@
             background: #f0f0f0;
             transform: translateY(-2px);
         }
+        .totals-section {
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 1.5rem;
+        }
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            padding: 0.3rem 0;
+        }
+        .total-row.final {
+            border-top: 2px solid rgba(255,255,255,0.3);
+            margin-top: 0.5rem;
+            padding-top: 0.8rem;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        @media (max-width: 768px) {
+            .success-container {
+                padding: 1.5rem;
+            }
+            .item-card {
+                flex-direction: column;
+                text-align: center;
+            }
+            .item-details {
+                text-align: center;
+            }
+            .order-header {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div class="success-container">
@@ -82,11 +197,12 @@
         // --- Firebase Setup (using your provided API key) ---
         const firebaseConfig = {
             apiKey: "AIzaSyCjA2u__EfEtTbWCISNFq-YtdH4iAmpZ6w",
-            authDomain: "bonsai-website.firebaseapp.com",
-            projectId: "bonsai-website",
-            storageBucket: "bonsai-website.appspot.com",
-            messagingSenderId: "1234567890",
-            appId: "1:1234567890:web:abcdef123456"
+            authDomain: "teien-tamashii.firebaseapp.com",
+            projectId: "teien-tamashii",
+            storageBucket: "teien-tamashii.firebasestorage.app",
+            messagingSenderId: "754182439532",
+            appId: "1:754182439532:web:e478ed437e224a91be4e49",
+            measurementId: "G-0SXMM7NMLD"
         };
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
@@ -103,77 +219,614 @@
         // --- Get cart and delivery info from localStorage ---
         let cart = [];
         let delivery = {};
+        let pickupSelected = false;
         try {
             cart = JSON.parse(localStorage.getItem('cartItems')) || [];
             delivery = JSON.parse(localStorage.getItem('deliveryAddress')) || {};
-        } catch {}
+            pickupSelected = localStorage.getItem('pickupSelected') === 'true';
+        } catch {
+            console.warn('Error parsing cart data from localStorage');
+        }
 
-        // --- Show order details ---
+        // --- Show enhanced order details ---
         function renderOrderDetails() {
             const detailsDiv = document.getElementById('order-details');
-            let html = '';
-            if (orderId) html += `<div><strong>Order ID:</strong> ${orderId}</div>`;
-            if (paymentId) html += `<div><strong>Payment Ref:</strong> ${paymentId}</div>`;
-            if (amount) html += `<div><strong>Amount Paid:</strong> R${amount}</div>`;
-            if (delivery && (delivery.address || delivery.city)) {
-                html += `<div><strong>Delivery:</strong> ${delivery.address || ''}, ${delivery.city || ''}, ${delivery.province || ''}</div>`;
+            
+            // Order header with key information
+            let headerHTML = '<div class="order-header">';
+            if (orderId) {
+                headerHTML += `<div class="order-info-item">
+                    <div class="order-info-label">Order ID</div>
+                    <div class="order-info-value">${orderId}</div>
+                </div>`;
             }
-            if (cart.length) {
-                html += `<div><strong>Items:</strong><ul style="text-align:left;">`;
+            if (paymentId) {
+                headerHTML += `<div class="order-info-item">
+                    <div class="order-info-label">Payment Reference</div>
+                    <div class="order-info-value">${paymentId}</div>
+                </div>`;
+            }
+            if (amount) {
+                headerHTML += `<div class="order-info-item">
+                    <div class="order-info-label">Amount Paid</div>
+                    <div class="order-info-value">R${parseFloat(amount).toFixed(2)}</div>
+                </div>`;
+            }
+            
+            const orderDate = new Date().toLocaleDateString('en-ZA', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            headerHTML += `<div class="order-info-item">
+                <div class="order-info-label">Order Date</div>
+                <div class="order-info-value">${orderDate}</div>
+            </div>`;
+            headerHTML += '</div>';
+            
+            // Delivery/Pickup information
+            let deliveryHTML = '';
+            if (pickupSelected) {
+                deliveryHTML = `
+                    <div class="delivery-info">
+                        <h4><i class="fas fa-hand-holding"></i> Collection Details</h4>
+                        <p><strong>Method:</strong> Pickup (Free)</p>
+                        <p><strong>Address:</strong> 1309 Cunningham Ave, Waverley, Pretoria, 0186</p>
+                        <p><strong>Hours:</strong> Mon-Fri 9AM-5PM, Sat 9AM-1PM</p>
+                        <p><i class="fas fa-info-circle"></i> Please bring ID for collection</p>
+                    </div>
+                `;
+            } else if (delivery && (delivery.address || delivery.city)) {
+                deliveryHTML = `
+                    <div class="delivery-info">
+                        <h4><i class="fas fa-truck"></i> Delivery Details</h4>
+                        <p><strong>Address:</strong> ${delivery.address || 'N/A'}</p>
+                        <p><strong>City:</strong> ${delivery.city || 'N/A'}</p>
+                        <p><strong>Province:</strong> ${delivery.province || 'N/A'}</p>
+                        <p><strong>Postal Code:</strong> ${delivery.postalCode || 'N/A'}</p>
+                    </div>
+                `;
+            }
+            
+            // Order items with images
+            let itemsHTML = '';
+            let subtotal = 0;
+            let shippingCost = 0;
+            
+            if (cart && cart.length > 0) {
+                itemsHTML = '<div class="order-items"><h3><i class="fas fa-shopping-bag"></i> Order Items</h3>';
+                
                 cart.forEach(item => {
-                    html += `<li>${item.title || item.name || 'Item'} x${item.quantity || 1}</li>`;
+                    const itemTotal = (item.price || 0) * (item.quantity || 1);
+                    subtotal += itemTotal;
+                    
+                    itemsHTML += `
+                        <div class="item-card">
+                            <img src="${item.image || 'https://via.placeholder.com/80x80?text=No+Image'}" 
+                                 alt="${item.name || item.title || 'Product'}" 
+                                 class="item-image"
+                                 onerror="this.src='https://via.placeholder.com/80x80?text=No+Image'">
+                            <div class="item-details">
+                                <div class="item-name">${item.name || item.title || 'Product'}</div>
+                                ${item.age ? `<div class="item-quantity">Age: ${item.age}</div>` : ''}
+                                ${item.weight ? `<div class="item-quantity">Weight: ${item.weight}</div>` : ''}
+                                <div class="item-quantity">Quantity: ${item.quantity || 1}</div>
+                            </div>
+                            <div class="item-price">R${itemTotal.toFixed(2)}</div>
+                        </div>
+                    `;
                 });
-                html += `</ul></div>`;
+                itemsHTML += '</div>';
             }
-            detailsDiv.innerHTML = html;
+            
+            // Calculate shipping if not pickup
+            if (!pickupSelected && amount) {
+                const totalAmount = parseFloat(amount);
+                shippingCost = totalAmount - subtotal;
+                if (shippingCost < 0) shippingCost = 0;
+            }
+            
+            // Totals section
+            let totalsHTML = `
+                <div class="totals-section">
+                    <div class="total-row">
+                        <span>Subtotal:</span>
+                        <span>R${subtotal.toFixed(2)}</span>
+                    </div>
+            `;
+            
+            if (shippingCost > 0) {
+                totalsHTML += `
+                    <div class="total-row">
+                        <span>Shipping:</span>
+                        <span>R${shippingCost.toFixed(2)}</span>
+                    </div>
+                `;
+            }
+            
+            totalsHTML += `
+                    <div class="total-row final">
+                        <span>Total Paid:</span>
+                        <span>R${amount ? parseFloat(amount).toFixed(2) : subtotal.toFixed(2)}</span>
+                    </div>
+                </div>
+            `;
+            
+            detailsDiv.innerHTML = headerHTML + deliveryHTML + itemsHTML + totalsHTML;
         }
         renderOrderDetails();
 
-        // --- Store order in Firestore (admin orders) ---
+        // --- Store enhanced order in Firestore (admin orders) ---
         async function storeOrder() {
             if (!cart.length) {
                 console.error('No cart data found, order not saved.');
-                document.getElementById('order-details').innerHTML += `<div style="color:#ffbaba;background:#d8000c;padding:10px;border-radius:8px;margin-top:10px;">No cart data found, order not saved.</div>`;
+                document.getElementById('order-details').innerHTML += `
+                    <div style="color:#ffbaba;background:#d8000c;padding:10px;border-radius:8px;margin-top:10px;">
+                        No cart data found, order not saved.
+                    </div>`;
                 return;
             }
+            
             try {
-                // Remove undefined/null from cart items
-                const cleanCart = cart.map(item => {
-                    const cleanItem = {};
-                    Object.keys(item).forEach(key => {
-                        if (item[key] !== undefined && item[key] !== null) cleanItem[key] = item[key];
-                    });
+                // Clean and prepare cart items with full details
+                const orderItems = cart.map(item => {
+                    const cleanItem = {
+                        name: item.name || item.title || 'Product',
+                        price: parseFloat(item.price || 0),
+                        quantity: parseInt(item.quantity || 1),
+                        image: item.image || null,
+                        total: parseFloat(item.price || 0) * parseInt(item.quantity || 1)
+                    };
+                    
+                    // Add optional fields if they exist
+                    if (item.age) cleanItem.age = item.age;
+                    if (item.weight) cleanItem.weight = item.weight;
+                    if (item.variantId) cleanItem.variantId = item.variantId;
+                    if (item.category) cleanItem.category = item.category;
+                    
                     return cleanItem;
                 });
 
-                // Remove undefined/null from delivery
-                Object.keys(delivery).forEach(key => {
-                    if (delivery[key] === undefined || delivery[key] === null) delete delivery[key];
-                });
+                // Calculate totals
+                const subtotal = orderItems.reduce((sum, item) => sum + item.total, 0);
+                const totalAmount = parseFloat(amount || 0);
+                const shippingCost = !pickupSelected && totalAmount > subtotal ? totalAmount - subtotal : 0;
 
-                // Remove undefined/null from order object
-                const orderData = {
-                    orderId: orderId || `ORDER_${Date.now()}`,
-                    paymentId: paymentId,
-                    paymentStatus: paymentStatus,
-                    amount: amount,
-                    cart: cleanCart,
-                    delivery: delivery,
-                    created: firebase.firestore.FieldValue.serverTimestamp()
+                // Prepare delivery information
+                const deliveryMethod = pickupSelected ? 'pickup' : 'delivery';
+                const deliveryDetails = pickupSelected ? {
+                    method: 'pickup',
+                    address: '1309 Cunningham Ave, Waverley, Pretoria, 0186',
+                    instructions: 'Pickup at store during business hours',
+                    cost: 0
+                } : {
+                    method: 'delivery',
+                    address: delivery.address || '',
+                    city: delivery.city || '',
+                    province: delivery.province || '',
+                    postalCode: delivery.postalCode || '',
+                    cost: shippingCost
                 };
-                Object.keys(orderData).forEach(key => {
-                    if (orderData[key] === undefined || orderData[key] === null) delete orderData[key];
-                });
 
-                await db.collection('orders').add(orderData);
+                // Create comprehensive order data
+                const orderData = {
+                    // Basic order information
+                    orderId: orderId || `ORDER_${Date.now()}`,
+                    paymentId: paymentId || '',
+                    paymentStatus: paymentStatus || 'COMPLETE',
+                    status: 'pending',
+                    
+                    // Financial information
+                    amount: totalAmount,
+                    subtotal: subtotal,
+                    shippingCost: shippingCost,
+                    
+                    // Order items with full details
+                    items: orderItems,
+                    itemCount: orderItems.length,
+                    
+                    // Delivery information
+                    deliveryMethod: deliveryMethod,
+                    deliveryDetails: deliveryDetails,
+                    deliveryAddress: pickupSelected ? null : delivery,
+                    
+                    // Customer information (if available from localStorage)
+                    customerName: localStorage.getItem('customerName') || 'Guest Customer',
+                    customerEmail: localStorage.getItem('customerEmail') || '',
+                    customerPhone: localStorage.getItem('customerPhone') || '',
+                    
+                    // Timestamps
+                    timestamp: Date.now(),
+                    created: firebase.firestore.FieldValue.serverTimestamp(),
+                    orderDate: new Date().toISOString(),
+                    
+                    // Additional metadata
+                    source: 'website',
+                    currency: 'ZAR',
+                    notes: pickupSelected ? 'Customer selected pickup option' : 'Delivery order'
+                };
+
+                // Save to Firestore orders collection
+                const docRef = await db.collection('orders').add(orderData);
+                console.log('Order saved with ID:', docRef.id);
+                
+                // Clear cart from localStorage after successful save
                 localStorage.removeItem('cartItems');
-                document.getElementById('order-details').innerHTML += `<div style="color:#4caf50;background:#e8f5e9;padding:10px;border-radius:8px;margin-top:10px;">Order saved successfully!</div>`;
-            } catch (e) {
-                console.error('Order save failed:', e);
-                document.getElementById('order-details').innerHTML += `<div style="color:#ffbaba;background:#d8000c;padding:10px;border-radius:8px;margin-top:10px;">Order could not be saved: ${e.message}</div>`;
+                localStorage.removeItem('deliveryAddress');
+                localStorage.removeItem('pickupSelected');
+                
+                // Show success message
+                document.getElementById('order-details').innerHTML += `
+                    <div style="color:#4caf50;background:#e8f5e9;padding:10px;border-radius:8px;margin-top:10px;">
+                        <i class="fas fa-check-circle"></i> Order saved successfully! 
+                        Your order is now in our system and will be processed shortly.
+                    </div>`;
+                
+            } catch (error) {
+                console.error('Order save failed:', error);
+                document.getElementById('order-details').innerHTML += `
+                    <div style="color:#ffbaba;background:#d8000c;padding:10px;border-radius:8px;margin-top:10px;">
+                        <i class="fas fa-exclamation-triangle"></i> Order could not be saved: ${error.message}
+                        <br><small>Don't worry, your payment was successful. Please contact us with your payment reference.</small>
+                    </div>`;
             }
         }
         storeOrder();
+
+        // --- Send confirmation email via Formspree ---
+        async function sendConfirmationEmail() {
+            try {
+                // Prevent duplicate emails
+                const emailKey = 'emailSent_' + (orderId || Date.now());
+                if (localStorage.getItem(emailKey)) {
+                    console.log('Email already sent for this order, skipping duplicate');
+                    const alreadySentMessage = document.createElement('div');
+                    alreadySentMessage.style.cssText = 'color:#4caf50;background:#e8f5e9;padding:15px;border-radius:8px;margin:15px 0;border-left:4px solid #4caf50;';
+                    alreadySentMessage.innerHTML = `
+                        <i class="fas fa-envelope-circle-check"></i> 
+                        <strong>Email Already Sent</strong><br>
+                        Order confirmation was previously sent for this order.
+                    `;
+                    document.getElementById('order-details').appendChild(alreadySentMessage);
+                    return;
+                }
+
+                // Get current user info
+                let currentUser = null;
+                try {
+                    const userData = localStorage.getItem('currentUser');
+                    currentUser = userData ? JSON.parse(userData) : null;
+                } catch (error) {
+                    console.warn('Could not get user data:', error);
+                }
+
+                // If no authenticated user, skip email
+                if (!currentUser || !currentUser.email) {
+                    console.log('No authenticated user email found, skipping email notification');
+                    const noUserMessage = document.createElement('div');
+                    noUserMessage.style.cssText = 'color:#666;background:#f5f5f5;padding:15px;border-radius:8px;margin:15px 0;border-left:4px solid #999;';
+                    noUserMessage.innerHTML = `
+                        <i class="fas fa-info-circle"></i> 
+                        <strong>Guest Purchase</strong><br>
+                        Email confirmation is available for registered users only.<br>
+                        <button onclick="downloadOrderReceipt()" style="
+                            background:#666;color:white;border:none;padding:6px 12px;
+                            border-radius:3px;margin-top:8px;cursor:pointer;font-size:12px;
+                        ">
+                            <i class="fas fa-download"></i> Download Receipt
+                        </button>
+                    `;
+                    document.getElementById('order-details').appendChild(noUserMessage);
+                    return;
+                }
+
+                const customerEmail = currentUser.email;
+                const customerName = currentUser.username || 'Valued Customer';
+
+                // Prepare email data
+                const emailData = {
+                    to: customerEmail,
+                    customerName: customerName,
+                    orderId: orderId || `ORDER_${Date.now()}`,
+                    paymentId: paymentId || 'N/A',
+                    totalAmount: amount ? parseFloat(amount).toFixed(2) : '0.00',
+                    orderDate: new Date().toLocaleDateString('en-ZA', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }),
+                    deliveryMethod: pickupSelected ? 'Pickup' : 'Delivery'
+                };
+
+                // Add delivery details
+                if (pickupSelected) {
+                    emailData.deliveryDetails = `Pickup at: 1309 Cunningham Ave, Waverley, Pretoria, 0186
+Hours: Mon-Fri 9AM-5PM, Sat 9AM-1PM
+Please bring ID for collection`;
+                } else if (delivery && (delivery.address || delivery.city)) {
+                    emailData.deliveryDetails = `Delivery to: 
+${delivery.address || ''}
+${delivery.city || ''}, ${delivery.province || ''}
+${delivery.postalCode || ''}`;
+                } else {
+                    emailData.deliveryDetails = 'Delivery details will be confirmed separately';
+                }
+
+                // Prepare order items for email
+                let orderItemsText = '';
+                let subtotal = 0;
+                if (cart && cart.length > 0) {
+                    orderItemsText = 'Order Items:\n';
+                    cart.forEach((item, index) => {
+                        const itemTotal = (item.price || 0) * (item.quantity || 1);
+                        subtotal += itemTotal;
+                        orderItemsText += `${index + 1}. ${item.name || item.title || 'Product'}
+   Quantity: ${item.quantity || 1}
+   Price: R${(item.price || 0).toFixed(2)} each
+   Subtotal: R${itemTotal.toFixed(2)}`;
+                        if (item.age) orderItemsText += `\n   Age: ${item.age}`;
+                        if (item.weight) orderItemsText += `\n   Weight: ${item.weight}`;
+                        orderItemsText += '\n\n';
+                    });
+                } else {
+                    orderItemsText = 'No items found in order';
+                }
+
+                emailData.orderItems = orderItemsText;
+                emailData.subtotal = subtotal.toFixed(2);
+
+                // Calculate shipping
+                const shippingCost = !pickupSelected && amount ? (parseFloat(amount) - subtotal) : 0;
+                emailData.shippingCost = shippingCost > 0 ? shippingCost.toFixed(2) : '0.00';
+
+                // Create detailed email body
+                emailData.emailBody = `Dear ${customerName},
+
+Thank you for your purchase from Teien Tamashii! Your order has been successfully processed.
+
+ORDER DETAILS:
+=============
+Order ID: ${emailData.orderId}
+Payment Reference: ${emailData.paymentId}
+Order Date: ${emailData.orderDate}
+
+${orderItemsText}
+
+PRICING BREAKDOWN:
+================
+Subtotal: R${emailData.subtotal}
+Shipping: R${emailData.shippingCost}
+Total Paid: R${emailData.totalAmount}
+
+DELIVERY INFORMATION:
+===================
+Method: ${emailData.deliveryMethod}
+${emailData.deliveryDetails}
+
+Thank you for choosing Teien Tamashii. We appreciate your business!
+
+If you have any questions about your order, please contact us at:
+Email: info@teientamashii.co.za
+Phone: +27 (0)12 345 6789
+
+Best regards,
+The Teien Tamashii Team
+庭園魂 - Garden Soul`;
+
+                // Send email via Formspree
+                const response = await fetch('https://formspree.io/f/mjkwjzrv', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: customerEmail,
+                        subject: `Order Confirmation - ${emailData.orderId}`,
+                        message: emailData.emailBody,
+                        _replyto: customerEmail,
+                        _subject: `Order Confirmation - ${emailData.orderId} - Teien Tamashii`,
+                        orderId: emailData.orderId,
+                        customerName: customerName,
+                        totalAmount: emailData.totalAmount,
+                        // Additional data for better email handling
+                        _format: 'plain',
+                        _template: 'basic'
+                    })
+                });
+
+                if (response.ok) {
+                    console.log('Confirmation email sent successfully');
+                    // Store email send status
+                    localStorage.setItem('emailSent_' + emailData.orderId, 'true');
+                    // Show email success message to user
+                    const successMessage = document.createElement('div');
+                    successMessage.style.cssText = 'color:#4caf50;background:#e8f5e9;padding:15px;border-radius:8px;margin:15px 0;border-left:4px solid #4caf50;';
+                    successMessage.innerHTML = `
+                        <i class="fas fa-envelope-circle-check"></i> 
+                        <strong>Email Confirmation Sent!</strong><br>
+                        A detailed order confirmation has been sent to: <strong>${customerEmail}</strong><br>
+                        <small>Please check your inbox and spam folder</small>
+                    `;
+                    document.getElementById('order-details').appendChild(successMessage);
+                } else {
+                    console.error('Failed to send confirmation email:', response.statusText);
+                    // Try alternative email method
+                    await sendFallbackEmail(emailData);
+                }
+            } catch (error) {
+                console.error('Error sending confirmation email:', error);
+                // Show error message but don't alarm the customer too much
+                const errorMessage = document.createElement('div');
+                errorMessage.style.cssText = 'color:#f57c00;background:#fff3e0;padding:15px;border-radius:8px;margin:15px 0;border-left:4px solid #f57c00;';
+                errorMessage.innerHTML = `
+                    <i class="fas fa-info-circle"></i> 
+                    <strong>Email Notification Delayed</strong><br>
+                    Your order was successful! If you don't receive a confirmation email within 30 minutes, please contact us.
+                `;
+                document.getElementById('order-details').appendChild(errorMessage);
+            }
+        }
+
+        // --- Fallback email method using mailto ---
+        async function sendFallbackEmail(emailData) {
+            // Save email data to localStorage for admin follow-up
+            const emailRecord = {
+                timestamp: Date.now(),
+                customerEmail: emailData.to,
+                customerName: emailData.customerName,
+                orderId: emailData.orderId,
+                emailBody: emailData.emailBody,
+                status: 'fallback_required'
+            };
+            
+            // Store in localStorage for admin review
+            const existingRecords = JSON.parse(localStorage.getItem('pendingEmails') || '[]');
+            existingRecords.push(emailRecord);
+            localStorage.setItem('pendingEmails', JSON.stringify(existingRecords));
+
+            // Show fallback message with contact options
+            const fallbackMessage = document.createElement('div');
+            fallbackMessage.style.cssText = 'color:#f57c00;background:#fff3e0;padding:15px;border-radius:8px;margin:15px 0;border-left:4px solid #f57c00;';
+            fallbackMessage.innerHTML = `
+                <i class="fas fa-info-circle"></i> 
+                <strong>Email Service Temporarily Unavailable</strong><br>
+                Your order was successful, but we couldn't send the automatic confirmation.<br>
+                <div style="margin-top:10px;">
+                    <strong>What to do:</strong><br>
+                    • We will send your confirmation manually within 1 hour<br>
+                    • Or contact us: <strong>info@teientamashii.co.za</strong><br>
+                    • Your order ID: <strong>${emailData.orderId}</strong>
+                </div>
+                <button onclick="downloadOrderReceipt()" style="
+                    background:#f57c00;color:white;border:none;padding:8px 16px;
+                    border-radius:5px;margin-top:10px;cursor:pointer;font-size:14px;
+                ">
+                    <i class="fas fa-download"></i> Download Order Details
+                </button>
+            `;
+            document.getElementById('order-details').appendChild(fallbackMessage);
+        }
+
+        // --- Download order receipt as text file ---
+        window.downloadOrderReceipt = function() {
+            try {
+                let currentUser = null;
+                try {
+                    const userData = localStorage.getItem('currentUser');
+                    currentUser = userData ? JSON.parse(userData) : null;
+                } catch (error) {
+                    console.warn('Could not get user data:', error);
+                }
+
+                const customerName = currentUser ? currentUser.username : 'Customer';
+                const customerEmail = currentUser ? currentUser.email : 'Not provided';
+
+                // Create receipt content
+                let receiptContent = `TEIEN TAMASHII - ORDER RECEIPT
+庭園魂 - Garden Soul
+
+=====================================
+ORDER INFORMATION
+=====================================
+Order ID: ${orderId || 'N/A'}
+Payment Reference: ${paymentId || 'N/A'}
+Order Date: ${new Date().toLocaleDateString('en-ZA', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })}
+
+Customer Name: ${customerName}
+Customer Email: ${customerEmail}
+
+=====================================
+ORDER ITEMS
+=====================================
+`;
+
+                let subtotal = 0;
+                if (cart && cart.length > 0) {
+                    cart.forEach((item, index) => {
+                        const itemTotal = (item.price || 0) * (item.quantity || 1);
+                        subtotal += itemTotal;
+                        receiptContent += `${index + 1}. ${item.name || item.title || 'Product'}
+   Quantity: ${item.quantity || 1}
+   Price: R${(item.price || 0).toFixed(2)} each
+   Subtotal: R${itemTotal.toFixed(2)}`;
+                        if (item.age) receiptContent += `\n   Age: ${item.age}`;
+                        if (item.weight) receiptContent += `\n   Weight: ${item.weight}`;
+                        receiptContent += '\n\n';
+                    });
+                } else {
+                    receiptContent += 'No items found\n\n';
+                }
+
+                const shippingCost = !pickupSelected && amount ? (parseFloat(amount) - subtotal) : 0;
+
+                receiptContent += `=====================================
+PRICING BREAKDOWN
+=====================================
+Subtotal: R${subtotal.toFixed(2)}
+Shipping: R${(shippingCost > 0 ? shippingCost : 0).toFixed(2)}
+Total Paid: R${amount ? parseFloat(amount).toFixed(2) : subtotal.toFixed(2)}
+
+=====================================
+DELIVERY INFORMATION
+=====================================
+Method: ${pickupSelected ? 'Pickup' : 'Delivery'}
+`;
+
+                if (pickupSelected) {
+                    receiptContent += `Pickup Location: 1309 Cunningham Ave, Waverley, Pretoria, 0186
+Hours: Mon-Fri 9AM-5PM, Sat 9AM-1PM
+Please bring ID for collection`;
+                } else if (delivery && (delivery.address || delivery.city)) {
+                    receiptContent += `Delivery Address:
+${delivery.address || ''}
+${delivery.city || ''}, ${delivery.province || ''}
+${delivery.postalCode || ''}`;
+                }
+
+                receiptContent += `
+
+=====================================
+CONTACT INFORMATION
+=====================================
+Teien Tamashii
+Email: info@teientamashii.co.za
+Phone: +27 (0)12 345 6789
+Address: 1309 Cunningham Ave, Waverley, Pretoria, 0186
+
+Thank you for your business!
+=====================================`;
+
+                // Create and download file
+                const blob = new Blob([receiptContent], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `TeienTamashii_Receipt_${orderId || 'ORDER'}_${Date.now()}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+            } catch (error) {
+                console.error('Error creating receipt download:', error);
+                alert('Sorry, there was an error creating the receipt download. Please contact us for a copy.');
+            }
+        };
+
+        // Send confirmation email after storing order
+        setTimeout(() => {
+            sendConfirmationEmail();
+        }, 2000); // Wait 2 seconds to ensure order is stored first
     </script>
 </body>
 </html>

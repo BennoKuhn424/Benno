@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PayFast Integration Test - Teien Tamashii</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .success { background: #e8f5e8; border-left: 4px solid #4caf50; }
+        .info { background: #e3f2fd; border-left: 4px solid #2196f3; }
+        .warning { background: #fff3cd; border-left: 4px solid #ffc107; }
+        button {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover { background: #45a049; }
+        .cart-items {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .total {
+            font-weight: bold;
+            font-size: 1.2em;
+            color: #2e7d32;
+            border-top: 2px solid #2e7d32;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+        #auth-status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌱 PayFast Integration Test - Teien Tamashii</h1>
+    
+    <div class="test-section info">
+        <h3>🔒 Authentication Status</h3>
+        <div id="auth-status">Checking authentication...</div>
+        <button onclick="showAuthModal()" id="auth-btn">Sign In</button>
+    </div>
+
+    <div class="test-section">
+        <h3>🛒 Test Cart</h3>
+        <div class="cart-items">
+            <div class="item">
+                <span>Ficus Bonsai (3-5 years)</span>
+                <span>R450.00</span>
+            </div>
+            <div class="item">
+                <span>Cedar Bonsai (5-8 years)</span>
+                <span>R680.00</span>
+            </div>
+            <div class="item">
+                <span>Delivery (Gauteng)</span>
+                <span>R150.00</span>
+            </div>
+            <div class="total">
+                Total: R1,280.00
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section success">
+        <h3>💳 PayFast Integration Test</h3>
+        <p>This will test the new PayFast integration (Sandbox mode):</p>
+        <ul>
+            <li>✅ Authentication check before payment</li>
+            <li>✅ Cart validation</li>
+            <li>✅ PayFast form creation and submission</li>
+            <li>✅ Order data storage for success page</li>
+        </ul>
+        <button onclick="testPayFastIntegration()" id="payfast-test-btn">
+            🔒 Test PayFast Checkout
+        </button>
+    </div>
+
+    <div class="test-section warning">
+        <h3>⚠️ Important Notes</h3>
+        <ul>
+            <li><strong>Sandbox Mode:</strong> Using PayFast sandbox for testing</li>
+            <li><strong>Test Cards:</strong> Use PayFast test card numbers</li>
+            <li><strong>No Real Payment:</strong> No actual money will be charged</li>
+            <li><strong>Email Integration:</strong> Success page will send confirmation email</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h3>📋 Test Results</h3>
+        <div id="test-results">
+            <p><em>Click the test button above to see results...</em></p>
+        </div>
+    </div>
+
+    <!-- Include the main scripts -->
+    <script src="firebase-config.js"></script>
+    <script src="scripts-firebase.js"></script>
+    
+    <script>
+        // Simple test functions for the PayFast integration
+        
+        function checkAuthStatus() {
+            const currentUserData = localStorage.getItem('currentUser');
+            const currentUser = currentUserData ? JSON.parse(currentUserData) : null;
+            const authStatus = document.getElementById('auth-status');
+            const authBtn = document.getElementById('auth-btn');
+            
+            if (currentUser) {
+                authStatus.innerHTML = `✅ Signed in as: <strong>${currentUser.username}</strong> (${currentUser.email})`;
+                authStatus.style.background = '#e8f5e8';
+                authBtn.textContent = 'Sign Out';
+                authBtn.onclick = signOut;
+            } else {
+                authStatus.innerHTML = '❌ Not signed in - PayFast checkout will show login modal';
+                authStatus.style.background = '#ffebee';
+                authBtn.textContent = 'Sign In';
+                authBtn.onclick = showAuthModal;
+            }
+        }
+        
+        function showAuthModal() {
+            // This would trigger the auth modal from the main script
+            const authModal = document.querySelector('#auth-modal');
+            if (authModal) {
+                authModal.classList.add('active');
+            } else {
+                alert('Authentication modal not available. Please go to shop.html to sign in.');
+            }
+        }
+        
+        function signOut() {
+            localStorage.removeItem('currentUser');
+            checkAuthStatus();
+            logTestResult('User signed out successfully');
+        }
+        
+        function testPayFastIntegration() {
+            logTestResult('🧪 Starting PayFast integration test...');
+            
+            // Create test cart items
+            window.cartItems = [
+                {
+                    name: 'Ficus Bonsai (3-5 years)',
+                    price: 450,
+                    quantity: 1,
+                    variantId: 'ficus-3-5',
+                    age: '3-5 years',
+                    weight: 2.5
+                },
+                {
+                    name: 'Cedar Bonsai (5-8 years)', 
+                    price: 680,
+                    quantity: 1,
+                    variantId: 'cedar-5-8',
+                    age: '5-8 years',
+                    weight: 3.2
+                }
+            ];
+            
+            // Set test delivery
+            window.currentDeliveryCost = 150;
+            window.deliveryAddress = {
+                address: '123 Test Street',
+                city: 'Johannesburg',
+                province: 'Gauteng',
+                postalCode: '2000'
+            };
+            
+            logTestResult('✅ Test cart and delivery data set');
+            
+            // Test the PayFast function
+            if (typeof processPayFastPayment === 'function') {
+                logTestResult('✅ processPayFastPayment function found');
+                
+                // Call the actual PayFast function
+                try {
+                    processPayFastPayment();
+                    logTestResult('✅ PayFast function called successfully');
+                } catch (error) {
+                    logTestResult('❌ Error calling PayFast function: ' + error.message);
+                }
+            } else {
+                logTestResult('❌ processPayFastPayment function not found - check scripts-firebase.js');
+            }
+        }
+        
+        function logTestResult(message) {
+            const results = document.getElementById('test-results');
+            const timestamp = new Date().toLocaleTimeString();
+            results.innerHTML += `<p><strong>[${timestamp}]</strong> ${message}</p>`;
+            console.log('[PayFast Test]', message);
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthStatus();
+            
+            // Check for successful authentication
+            setTimeout(() => {
+                checkAuthStatus();
+            }, 1000);
+        });
+        
+        // Listen for auth changes
+        setInterval(checkAuthStatus, 2000);
+    </script>
+</body>
+</html>

@@ -1,5 +1,80 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('scripts-firebase.js loaded with DEMO MODE PayFast and AGE + WEIGHT SYSTEM + PERSISTENT CART');
+    // --- Force all main features to initialize on every page ---
+        setTimeout(() => {
+            const path = window.location.pathname;
+            if (path.includes('shop.html')) {
+                if (typeof loadProducts === 'function') {
+                    loadProducts('all');
+                    console.log('[Init] loadProducts called (shop)');
+                }
+            } else if (path === '/' || path.endsWith('index.html')) {
+                if (typeof loadFeaturedProducts === 'function') {
+                    loadFeaturedProducts();
+                    console.log('[Init] loadFeaturedProducts called (home)');
+                }
+            }
+            if (typeof loadCareTipsPage === 'function' && (path.includes('care-tips') || path.includes('tips'))) {
+                loadCareTipsPage();
+                console.log('[Init] loadCareTipsPage called');
+            }
+            if (typeof loadCoursesPage === 'function' && path.includes('courses')) {
+                loadCoursesPage();
+                console.log('[Init] loadCoursesPage called');
+            }
+            if (typeof loadFeaturedCourses === 'function' && (path === '/' || path.endsWith('index.html'))) {
+                loadFeaturedCourses();
+                console.log('[Init] loadFeaturedCourses called (home)');
+            }
+            // Re-attach cart and shop button listeners after DOM is ready
+            setTimeout(() => {
+                const cartIcon = document.querySelector('#cart-icon');
+                const cart = document.querySelector('.cart');
+                const cartClose = document.querySelector('#cart-close');
+                if (cartIcon && cart) {
+                    cartIcon.onclick = () => {
+                        cart.classList.add('active');
+                        updateCartDisplay && updateCartDisplay();
+                    };
+                }
+                if (cartClose && cart) {
+                    cartClose.onclick = () => cart.classList.remove('active');
+                }
+                // Shop add-to-cart buttons
+                document.querySelectorAll('.select-variant-btn').forEach(btn => {
+                    btn.onclick = function(e) {
+                        e.preventDefault();
+                        if (typeof openVariantModal === 'function') {
+                            const productTitle = this.getAttribute('data-product-title') || this.closest('.product-box')?.getAttribute('data-product-title');
+                            if (productTitle) openVariantModal(productTitle);
+                        }
+                    };
+                });
+            }, 800);
+        }, 500);
+    // --- Ensure cart always loads on every page ---
+    if (typeof loadCartFromStorage === 'function') {
+        loadCartFromStorage();
+        window.loadCartFromStorage = loadCartFromStorage;
+        console.log('[Cart] loadCartFromStorage called on DOMContentLoaded');
+    } else if (typeof window.loadCartFromStorage === 'function') {
+        window.loadCartFromStorage();
+        console.log('[Cart] window.loadCartFromStorage called on DOMContentLoaded');
+    } else {
+        console.warn('[Cart] loadCartFromStorage function not found on DOMContentLoaded');
+    }
+    // --- Add manual refresh for debugging ---
+    window.forceCartRefresh = function() {
+        if (typeof loadCartFromStorage === 'function') {
+            loadCartFromStorage();
+            console.log('[Cart] Manual cart refresh triggered');
+        } else if (typeof window.loadCartFromStorage === 'function') {
+            window.loadCartFromStorage();
+            console.log('[Cart] Manual cart refresh triggered (window)');
+        } else {
+            console.warn('[Cart] loadCartFromStorage not found for manual refresh');
+        }
+    };
 
     // Safe localStorage wrapper to handle security restrictions
     const safeStorage = {
@@ -35,16 +110,24 @@ document.addEventListener('DOMContentLoaded', () => {
     let firebaseAvailable = false;
     let dbAvailable = false;
     
+    // --- Patch: Always use window.db if available, else show error ---
     try {
-        if (typeof firebase !== 'undefined' && typeof db !== 'undefined') {
+        if (typeof firebase !== 'undefined' && (typeof db !== 'undefined' || typeof window.db !== 'undefined')) {
             firebaseAvailable = true;
-            dbAvailable = true;
-            console.log('Firebase and Firestore are available');
+            if (typeof db === 'undefined' && typeof window.db !== 'undefined') {
+                db = window.db;
+            }
+            dbAvailable = typeof db !== 'undefined';
+            if (dbAvailable) {
+                console.log('Firebase and Firestore are available');
+            } else {
+                console.error('Firestore db object is NOT available. Check Firebase initialization!');
+            }
         } else {
-            console.warn('Firebase or Firestore not available');
+            console.error('Firebase or Firestore not available.');
         }
     } catch (error) {
-        console.warn('Firebase check failed:', error);
+        console.error('Firebase check failed:', error);
     }
 
     // Initialize AOS
@@ -170,6 +253,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (existingMessage) {
                 existingMessage.remove();
             }
+            // Clear pending checkout when modal is closed
+            window.pendingCheckout = false;
         });
     }
 
@@ -258,6 +343,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         authModal.classList.remove('active');
                         showAuthMessage('Login successful!', 'success');
                         
+                        // Check if user was trying to checkout and continue the process
+                        if (window.pendingCheckout) {
+                            window.pendingCheckout = false;
+                            setTimeout(() => {
+                                processPayFastPayment();
+                            }, 500);
+                        }
+                        
                         if (userSession.role === 'admin') {
                             setTimeout(() => {
                                 window.location.href = 'admin.html';
@@ -324,6 +417,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateAuthUI(userSession);
                     authModal.classList.remove('active');
                     showAuthMessage('Registration successful!', 'success');
+                    
+                    // Check if user was trying to checkout and continue the process
+                    if (window.pendingCheckout) {
+                        window.pendingCheckout = false;
+                        setTimeout(() => {
+                            processPayFastPayment();
+                        }, 500);
+                    }
                     
                     if (userSession.role === 'admin') {
                         setTimeout(() => {
@@ -411,51 +512,63 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ===== PERSISTENT CART FUNCTIONALITY =====
-    
-    // Cart state
-    let cartItems = [];
-    let cartItemCount = 0;
-    
-    // DOM elements
-    const cartIcon = document.querySelector('#cart-icon');
-    const cart = document.querySelector('.cart');
-    const cartClose = document.querySelector('#cart-close');
-    const cartContent = document.querySelector('.cart-content');
-    const totalPriceElement = document.querySelector('.total-price');
-    const cartItemCountBadge = document.querySelector('.cart-item-count');
 
-    // Initialize cart on page load
-    loadCartFromStorage();
+// Cart state
+let cartItems = [];
+let cartItemCount = 0;
+// Delivery state (must be initialized before any cart logic)
+let currentDeliveryCost = 0;
+let deliveryAddress = null;
 
-    if (cartIcon && cart && cartClose) {
-        cartIcon.addEventListener('click', () => {
-            console.log('Cart icon clicked');
+// DOM elements
+const cartIcon = document.querySelector('#cart-icon');
+const cart = document.querySelector('.cart');
+const cartClose = document.querySelector('#cart-close');
+const cartContent = document.querySelector('.cart-content');
+const totalPriceElement = document.querySelector('.total-price');
+const cartItemCountBadge = document.querySelector('.cart-item-count');
+
+// Load cart data from localStorage
+window.loadCartFromStorage = function loadCartFromStorage() {
+    try {
+        const storedCart = safeStorage.getItem('cartItems');
+        cartItems = storedCart ? JSON.parse(storedCart) : [];
+        updateCartDisplay && updateCartDisplay();
+    } catch (e) {
+        cartItems = [];
+        updateCartDisplay && updateCartDisplay();
+    }
+};
+
+// Initialize cart on page load
+window.loadCartFromStorage();
+
+if (cartIcon) {
+    cartIcon.addEventListener('click', () => {
+        console.log('Cart icon clicked');
+        if (cart) {
             cart.classList.add('active');
-        });
-
-        cartClose.addEventListener('click', () => {
-            console.log('Cart close clicked');
-            cart.classList.remove('active');
-        });
-    }
-
-    // Load cart data from localStorage
-    function loadCartFromStorage() {
-        try {
-            const savedCart = safeStorage.getItem('cartItems');
-            if (savedCart) {
-                cartItems = JSON.parse(savedCart);
-                cartItemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
-                updateCartDisplay();
-                console.log('Cart loaded from storage:', cartItems.length, 'unique items');
-            }
-        } catch (error) {
-            console.error('Error loading cart from storage:', error);
-            cartItems = [];
-            cartItemCount = 0;
+            updateCartDisplay && updateCartDisplay();
+        } else {
+            console.warn('Cart element not found on this page');
         }
-    }
+    });
+}
 
+if (cartClose) {
+    cartClose.addEventListener('click', () => {
+        console.log('Cart close clicked');
+        if (cart) {
+            cart.classList.remove('active');
+        }
+    });
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && cart && cart.classList.contains('active')) {
+        cart.classList.remove('active');
+    }
+});
     // Save cart data to localStorage
     function saveCartToStorage() {
         try {
@@ -468,11 +581,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update cart display
     function updateCartDisplay() {
-        if (!cartContent) return;
-        
-        // Clear current content
-        cartContent.innerHTML = '';
-        
+       updateCartBadge();
+    
+    if (!cartContent) {
+        console.log('Cart content element not found, skipping display update');
+        return;
+    }
+    
+    // Clear current content
+    cartContent.innerHTML = '';
+
         if (cartItems.length === 0) {
             cartContent.innerHTML = `
                 <div class="cart-empty">
@@ -549,6 +667,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         updateCartTotals();
     }
+
+    // Update just the cart badge (works on all pages)
+function updateCartBadge() {
+    const cartItemCountBadge = document.querySelector('.cart-item-count');
+    if (cartItemCountBadge) {
+        const itemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+        cartItemCountBadge.style.visibility = itemCount > 0 ? 'visible' : 'hidden';
+        cartItemCountBadge.textContent = itemCount > 0 ? itemCount : '';
+    }
+}
 
     // Update cart totals and badge (MODIFIED to include delivery)
     function updateCartTotals() {
@@ -637,7 +765,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const cart = document.querySelector('.cart');
         const totalSection = cart.querySelector('.total');
         if (!cart || !totalSection) return;
-        if (cart.querySelector('.delivery-section')) return;
+        // Remove existing delivery section if present (to allow re-render)
+        const oldSection = cart.querySelector('.delivery-section');
+        if (oldSection) oldSection.remove();
 
         const deliverySection = document.createElement('div');
         deliverySection.className = 'delivery-section';
@@ -646,6 +776,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <h3><i class="fas fa-truck"></i> Delivery Information</h3>
             </div>
             <div class="delivery-form">
+                <div class="pickup-or-delivery">
+                    <label><input type="radio" name="delivery-method" value="delivery" checked> Delivery</label>
+                    <label><input type="radio" name="delivery-method" value="pickup"> Pickup (Free)</label>
+                </div>
                 <div class="address-input-group">
                     <label for="delivery-address">Delivery Address:</label>
                     <input type="text" id="delivery-address" placeholder="Street address">
@@ -659,6 +793,39 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         cart.insertBefore(deliverySection, totalSection);
+
+        // Pickup/Delivery radio logic
+        const deliveryRadio = deliverySection.querySelector('input[name="delivery-method"][value="delivery"]');
+        const pickupRadio = deliverySection.querySelector('input[name="delivery-method"][value="pickup"]');
+        const addressGroup = deliverySection.querySelector('.address-input-group');
+
+        function setPickupMode(isPickup) {
+            const saveBtn = deliverySection.querySelector('#save-delivery-address');
+            if (isPickup) {
+                addressGroup.style.display = 'none';
+                if (saveBtn) saveBtn.style.display = 'none';
+                currentDeliveryCost = 0;
+                updateCartTotals();
+                localStorage.setItem('pickupSelected', 'true');
+            } else {
+                addressGroup.style.display = '';
+                if (saveBtn) saveBtn.style.display = '';
+                localStorage.setItem('pickupSelected', 'false');
+            }
+        }
+
+        deliveryRadio.addEventListener('change', () => setPickupMode(false));
+        pickupRadio.addEventListener('change', () => setPickupMode(true));
+
+        // Restore pickup/delivery selection from localStorage
+        const pickupSelected = localStorage.getItem('pickupSelected') === 'true';
+        if (pickupSelected) {
+            pickupRadio.checked = true;
+            setPickupMode(true);
+        } else {
+            deliveryRadio.checked = true;
+            setPickupMode(false);
+        }
 
         // Save address to localStorage automatically on input
         const addressInput = deliverySection.querySelector('#delivery-address');
@@ -679,7 +846,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         });
-        
+
         // Optionally, still keep the save button for user feedback
         const saveBtn = deliverySection.querySelector('#save-delivery-address');
         saveBtn.addEventListener('click', () => {
@@ -745,9 +912,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+
     // Global delivery variables
-    let currentDeliveryCost = 0;
-    let deliveryAddress = null;
 
     function isShopPage() {
         return window.location.pathname.includes('shop.html');
@@ -768,7 +934,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         productContent.innerHTML = '<p>Loading products...</p>';
 
-        db.collection('products').get().then((snapshot) => {
+    db.collection('products').get().then((snapshot) => {
             if (snapshot.empty) {
                 productContent.innerHTML = '<p>No products available. Admin can add products from the admin panel.</p>';
                 return;
@@ -806,16 +972,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const variants = groupedProducts[productTitle];
                 const mainProduct = variants[0];
                 productCount++;
-                
                 const prices = variants.map(v => v.price);
                 const minPrice = Math.min(...prices);
                 const maxPrice = Math.max(...prices);
                 const priceDisplay = minPrice === maxPrice ? `R${minPrice}` : `R${minPrice} - R${maxPrice}`;
-                
-                const variantText = variants.length === 1 ? 
-                    '1 variant' : 
-                    `${variants.length} variants`;
-                
+                const variantText = variants.length === 1 ? '1 variant' : `${variants.length} variants`;
                 productsHTML += `
                     <div class="product-box" data-product-title="${productTitle}">
                         <div class="img-box">
@@ -829,7 +990,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p class="variant-count">${variantText} (age + weight)</p>
                         <div class="price-and-cart">
                             <span class="price">${priceDisplay}</span>
-                            <button class="select-variant-btn" onclick="openVariantModal('${productTitle}')">
+                            <button class="select-variant-btn" data-product-title="${productTitle}">
                                 <i class="fas fa-cog"></i> Select Variant
                             </button>
                         </div>
@@ -842,10 +1003,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 productContent.innerHTML = `<p>No products available for ${categoryDisplayName}.</p>`;
             } else {
                 productContent.innerHTML = productsHTML;
+                // Attach event listeners to select-variant-btns
+                productContent.querySelectorAll('.select-variant-btn').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const productTitle = this.getAttribute('data-product-title') || this.closest('.product-box')?.getAttribute('data-product-title');
+                        if (productTitle && typeof window.openVariantModal === 'function') {
+                            window.openVariantModal(productTitle);
+                        }
+                    });
+                });
             }
-            
+            // Attach filter button listeners (shop page)
+            if (isShopPage()) {
+                const filterButtons = document.querySelectorAll('.filter-btn');
+                filterButtons.forEach(button => {
+                    button.onclick = function() {
+                        filterButtons.forEach(btn => btn.classList.remove('active'));
+                        this.classList.add('active');
+                        const filterValue = this.dataset.filter;
+                        loadProducts(filterValue);
+                    };
+                });
+            }
             console.log(`Loaded ${productCount} product types for category: ${filterCategory}`);
-            
         }).catch(error => {
             console.error('Error getting products:', error);
             productContent.innerHTML = '<p>Error loading products. Please try again later.</p>';
@@ -1582,28 +1763,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     variantOptions.innerHTML = '<p>No variants available.</p>';
                     return;
                 }
-                
                 let optionsHTML = '';
                 const variants = [];
-                
                 snapshot.forEach(doc => {
                     const variant = { id: doc.id, ...doc.data() };
                     if (variant.quantity > 0) {
                         variants.push(variant);
                     }
                 });
-                
                 variants.sort((a, b) => {
                     if (a.age !== b.age) return a.age - b.age;
                     return (a.weight || 0) - (b.weight || 0);
                 });
-                
-                variants.forEach(variant => {
+                variants.forEach((variant, idx) => {
                     const ageText = variant.age === 1 ? '1 year' : `${variant.age} years`;
                     const weightText = variant.weight ? `${variant.weight}${variant.weightUnit || 'kg'}` : 'Weight N/A';
-                    
                     optionsHTML += `
-                        <div class="age-option" onclick="selectVariant('${variant.id}', '${variant.title}', ${variant.age}, '${weightText}', ${variant.price}, '${variant.image}')">
+                        <div class="age-option" data-variant-idx="${idx}">
                             <div class="age-option-info">
                                 <div class="variant-info-display">
                                     <div class="age-weight-display">
@@ -1618,15 +1794,19 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <i class="fas fa-shopping-bag"></i>
                                 Add to Cart
                             </div>
-                        </div>
-                    `;
+                        </div>`;
                 });
-                
                 if (variants.length === 0) {
                     optionsHTML = '<p>All variants are currently out of stock.</p>';
                 }
-                
                 variantOptions.innerHTML = optionsHTML;
+                // Attach event listeners to each variant option
+                variantOptions.querySelectorAll('.age-option').forEach((el, idx) => {
+                    el.addEventListener('click', function() {
+                        const v = variants[idx];
+                        if (v) window.selectVariant(v.id, v.title, v.age, v.weight ? `${v.weight}${v.weightUnit || 'kg'}` : 'Weight N/A', v.price, v.image);
+                    });
+                });
                 modal.classList.add('active');
             })
             .catch(error => {
@@ -1668,9 +1848,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ===== FIXED DEMO MODE PAYFAST INTEGRATION =====
 
-    // FIXED: Enhanced cart processing with better error handling
-    function processDemoPayment() {
-        console.log('DEMO MODE: Processing payment with delivery...');
+    // PayFast checkout processing with authentication
+    function processPayFastPayment() {
+        console.log('Processing PayFast payment...');
+        
+        // Check if user is signed in FIRST
+        const currentUserData = safeStorage.getItem('currentUser');
+        const currentUser = currentUserData ? JSON.parse(currentUserData) : null;
+        
+        if (!currentUser) {
+            // User is not signed in, show the authentication modal
+            console.log('User not signed in, showing auth modal');
+            window.pendingCheckout = true; // Set flag to continue checkout after login
+            const authModal = document.querySelector('#auth-modal');
+            if (authModal) {
+                authModal.classList.add('active');
+                // Set the form to login mode
+                isLoginMode = true;
+                const authTitle = document.querySelector('#auth-title');
+                const authSubmit = document.querySelector('#auth-submit');
+                const usernameInput = document.querySelector('#username');
+                if (authTitle) authTitle.textContent = 'Login';
+                if (authSubmit) authSubmit.textContent = 'Login';
+                if (usernameInput) usernameInput.style.display = 'none';
+                const authToggle = document.querySelector('#auth-toggle');
+                if (authToggle) {
+                    authToggle.innerHTML = 'Don\'t have an account? <a href="#" id="toggle-link">Register</a>';
+                }
+                const authForm = document.querySelector('#auth-form');
+                if (authForm) authForm.reset();
+                attachToggleEvent();
+                
+                // Show a message to the user about why they need to login
+                showAuthMessage('Please sign in to continue with your purchase.', 'info');
+            }
+            return; // Stop the checkout process
+        }
         
         // Validate cart
         if (!cartItems || cartItems.length === 0) {
@@ -1679,457 +1892,134 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let subtotal = 0;
-        let orderItems = [];
+        let itemNames = [];
         
         try {
+            // Calculate totals and prepare item list
             cartItems.forEach(item => {
                 if (!item.price || !item.quantity) {
                     throw new Error('Invalid item in cart');
                 }
                 subtotal += item.price * item.quantity;
-                orderItems.push({
-                    name: item.name,
-                    price: item.price,
-                    quantity: item.quantity,
-                    variantId: item.variantId,
-                    total: item.price * item.quantity
-                });
+                const itemName = item.name || item.title || 'Product';
+                const quantity = item.quantity > 1 ? ` x${item.quantity}` : '';
+                itemNames.push(itemName + quantity);
             });
 
-            const total = subtotal + (currentDeliveryCost || 0);
+            const deliveryCost = currentDeliveryCost || 0;
+            const total = subtotal + deliveryCost;
 
             if (total <= 0) {
                 alert('Invalid cart total. Please refresh and try again.');
                 return;
             }
 
-            const orderId = `DEMO_TT${Date.now()}${Math.floor(Math.random() * 1000)}`;
+            // Generate unique order ID
+            const orderId = `TT${Date.now()}${Math.floor(Math.random() * 1000)}`;
             
-            const completedOrder = {
+            // Store order data for success page
+            const orderData = {
                 orderId: orderId,
-                items: orderItems,
+                items: cartItems.map(item => ({
+                    name: item.name,
+                    price: item.price,
+                    quantity: item.quantity,
+                    variantId: item.variantId,
+                    total: item.price * item.quantity,
+                    age: item.age,
+                    weight: item.weight
+                })),
                 subtotal: subtotal,
-                deliveryCost: currentDeliveryCost || 0,
+                deliveryCost: deliveryCost,
                 deliveryAddress: deliveryAddress,
                 total: total,
                 timestamp: new Date().toISOString(),
-                status: 'completed'
+                customerEmail: currentUser.email,
+                customerName: currentUser.username
             };
             
-            console.log('DEMO MODE: Creating completed order with delivery:', completedOrder);
-            
-            // Store order data
+            // Store for success page
             try {
-                safeStorage.setItem('completedOrder', JSON.stringify(completedOrder));
+                safeStorage.setItem('pendingOrder', JSON.stringify(orderData));
+                safeStorage.setItem('currentOrderId', orderId);
             } catch (error) {
                 console.error('Failed to store order data:', error);
             }
 
-            // Show confirmation and proceed
-            showDemoPaymentConfirmation(completedOrder, () => {
-                proceedToSuccessDemo(orderId, completedOrder);
+            // Prepare PayFast form data
+            const itemDescription = itemNames.join(', ').substring(0, 100); // PayFast limit
+            const merchantId = '10000100'; // Sandbox merchant ID
+            const merchantKey = '46f0cd694581a'; // Sandbox merchant key
+            
+            // Create and submit PayFast form
+            const form = document.createElement('form');
+            form.action = 'https://sandbox.payfast.co.za/eng/process'; // Use sandbox for testing
+            form.method = 'post';
+            form.target = '_blank';
+            
+            // PayFast required parameters
+            const payfastData = {
+                'merchant_id': merchantId,
+                'merchant_key': merchantKey,
+                'amount': total.toFixed(2),
+                'item_name': itemDescription,
+                'return_url': 'https://teientamashii.co.za/success.html',
+                'cancel_url': 'https://teientamashii.co.za/shop.html',
+                'notify_url': 'https://teientamashii.co.za/payfast-notify', // You'll need to implement this endpoint
+                'm_payment_id': orderId,
+                'custom_str1': orderId,
+                'custom_str2': 'ecommerce',
+                'custom_str3': deliveryAddress ? 'delivery' : 'pickup',
+                'email_address': currentUser.email,
+                'name_first': currentUser.username.split(' ')[0] || currentUser.username,
+                'name_last': currentUser.username.split(' ').slice(1).join(' ') || ''
+            };
+
+            // Add form fields
+            Object.keys(payfastData).forEach(key => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = payfastData[key];
+                form.appendChild(input);
             });
-            
-        } catch (error) {
-            console.error('Error processing payment:', error);
-            alert('Error processing payment. Please try again.');
-        }
-    }
 
-    // FIXED: Enhanced success flow
-    function proceedToSuccessDemo(orderId, orderData) {
-        console.log('DEMO MODE: Proceeding to success page...');
-        
-        // Update buy button state
-        const buyButton = document.querySelector('.btn-buy');
-        if (buyButton) {
-            const originalText = buyButton.innerHTML;
-            buyButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Demo...';
-            buyButton.disabled = true;
-            
-            setTimeout(() => {
-                if (buyButton) {
-                    buyButton.innerHTML = originalText;
-                    buyButton.disabled = false;
-                }
-            }, 5000);
-        }
-
-        const demoPaymentId = `DEMO_PF${Date.now()}`;
-        
-        // Save order to Firebase
-        if (orderData) {
-            saveOrderToFirebaseFromShop(orderId, orderData, 'COMPLETE', demoPaymentId, orderData.total);
-        }
-
-        // Show success modal after delay
-        setTimeout(() => {
-            showDemoSuccessModal(orderId, 'COMPLETE', demoPaymentId, orderData);
-        }, 2000);
-    }
-
-    function showDemoPaymentConfirmation(order, callback) {
-        const modal = document.createElement('div');
-        modal.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            padding: 20px;
-        `;
-        
-        modal.innerHTML = `
-            <div style="
-                background: white;
-                padding: 30px;
-                border-radius: 15px;
-                max-width: 600px;
-                width: 100%;
-                text-align: center;
-                box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-                max-height: 90vh;
-                overflow-y: auto;
-            ">
-                <h3 style="color: #4caf50; margin-bottom: 20px; font-size: 1.5rem;">
-                    <i class="fas fa-play-circle"></i> Demo Mode Active
-                </h3>
-                <div style="
-                    background: #e3f2fd;
-                    padding: 20px;
-                    border-radius: 10px;
-                    margin: 20px 0;
-                    text-align: left;
-                    border-left: 4px solid #2196f3;
-                ">
-                    <h4 style="color: #1565c0; margin-bottom: 15px;">
-                        <i class="fas fa-info-circle"></i> Demo Purchase Preview
-                    </h4>
-                    <p style="margin-bottom: 10px; color: #1976d2;">
-                        This is a demonstration of what happens after a successful purchase. 
-                        No actual payment will be processed.
-                    </p>
-                </div>
-                <div style="
-                    background: #f8f9fa;
-                    padding: 20px;
-                    border-radius: 10px;
-                    margin: 20px 0;
-                    text-align: left;
-                ">
-                    <h4 style="color: #2e7d32; margin-bottom: 15px;">Order Summary:</h4>
-                    <p><strong>Order ID:</strong> ${order.orderId}</p>
-                    <p><strong>Items:</strong> ${order.items.length}</p>
-                    <p><strong>Total:</strong> R${order.total.toFixed(2)}</p>
-                    <div style="margin-top: 15px; max-height: 200px; overflow-y: auto;">
-                        ${order.items.map(item => `
-                            <div style="border-bottom: 1px solid #eee; padding: 8px 0;">
-                                <strong>${item.name}</strong><br>
-                                <small>Qty: ${item.quantity} × R${item.price.toFixed(2)} = R${item.total.toFixed(2)}</small>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-                <div style="display: flex; gap: 15px; justify-content: center; margin-top: 25px;">
-                    <button id="proceed-demo" style="
-                        background: #4caf50;
-                        color: white;
-                        border: none;
-                        padding: 12px 24px;
-                        border-radius: 25px;
-                        cursor: pointer;
-                        font-weight: 600;
-                        font-size: 16px;
-                    ">
-                        <i class="fas fa-arrow-right"></i> See Success Page
-                    </button>
-                    <button id="cancel-demo" style="
-                        background: #666;
-                        color: white;
-                        border: none;
-                        padding: 12px 24px;
-                        border-radius: 25px;
-                        cursor: pointer;
-                        font-weight: 600;
-                        font-size: 16px;
-                    ">
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        modal.querySelector('#proceed-demo').addEventListener('click', () => {
-            document.body.removeChild(modal);
-            callback();
-        });
-        
-        modal.querySelector('#cancel-demo').addEventListener('click', () => {
-            document.body.removeChild(modal);
-            safeStorage.removeItem('completedOrder');
-        });
-    }
-
-    function showDemoSuccessModal(orderId, paymentStatus, paymentId, orderData) {
-        const isComplete = paymentStatus === 'COMPLETE';
-        const statusText = 'Demo Purchase Complete!';
-        const statusIcon = '🎉';
-        
-        const successModal = document.createElement('div');
-        successModal.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            padding: 2rem;
-        `;
-        
-        let orderSummaryHTML = '';
-        if (orderData && orderData.items && orderData.items.length > 0) {
-            orderSummaryHTML = `
-                <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 10px; margin: 2rem 0; text-align: left;">
-                    <div style="font-weight: 700; color: #2e7d32; margin-bottom: 1rem; font-size: 1.2rem; text-align: center;">
-                        <i class="fas fa-receipt"></i> Order Summary
-                    </div>
-                    ${orderData.items.map(item => `
-                        <div style="display: flex; justify-content: space-between; padding: 0.8rem 0; border-bottom: 1px solid #e0e0e0;">
-                            <div><strong>${item.name}</strong><br><small>Qty: ${item.quantity} × R${item.price.toFixed(2)}</small></div>
-                            <div style="font-weight: 600;">R${(item.price * item.quantity).toFixed(2)}</div>
-                        </div>
-                    `).join('')}
-                    <div style="display: flex; justify-content: space-between; padding: 1rem 0 0; font-weight: 700; font-size: 1.3rem; color: #2e7d32; border-top: 2px solid #2e7d32; margin-top: 1rem;">
-                        <span>Total (Demo):</span><span>R${orderData.total.toFixed(2)}</span>
-                    </div>
-                </div>
-            `;
-        }
-        
-        successModal.innerHTML = `
-            <div style="background: white; padding: 3rem 2rem; border-radius: 20px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.2); max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto;">
-                <div style="font-size: 4rem; margin-bottom: 1.5rem;">${statusIcon}</div>
-                <h1 style="font-size: 2.5rem; color: #2e7d32; margin-bottom: 1rem; font-family: 'Lora', serif;">${statusText}</h1>
-                <div style="background: #e3f2fd; padding: 1.5rem; border-radius: 10px; margin: 1.5rem 0; border-left: 4px solid #2196f3;">
-                    <h4 style="color: #1565c0; margin-bottom: 10px;">
-                        <i class="fas fa-info-circle"></i> Demo Mode
-                    </h4>
-                    <p style="color: #1976d2; margin: 0; font-size: 0.95rem;">
-                        This is a demonstration of the post-purchase experience. In a real transaction, 
-                        customers would receive email confirmations and their items would be prepared for shipping.
-                    </p>
-                </div>
-                <p style="color: #666; margin-bottom: 2rem; line-height: 1.6; font-size: 1.1rem;">
-                    This demonstrates the complete purchase flow. Customers would receive order confirmation 
-                    and tracking information via email.
-                </p>
-                <div style="background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 1rem; margin: 1rem 0;">
-                    <strong>Demo Order Reference:</strong>
-                    <div style="font-family: monospace; background: #f5f5f5; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0;">${orderId}</div>
-                    <strong>Demo Payment ID:</strong>
-                    <div style="font-family: monospace; background: #f5f5f5; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0;">${paymentId}</div>
-                </div>
-                ${orderSummaryHTML}
-                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem;">
-                    <a href="index.html" style="padding: 1rem 2rem; background: #4caf50; color: white; text-decoration: none; border-radius: 25px; font-weight: 600;">
-                        <i class="fas fa-home"></i> Back to Home
-                    </a>
-                    <button onclick="continueDemoShopping()" style="padding: 1rem 2rem; background: #e0e0e0; color: #333; border: none; border-radius: 25px; cursor: pointer; font-weight: 600;">
-                        <i class="fas fa-shopping-bag"></i> Continue Shopping
-                    </button>
-                    <a href="care-tips.html" style="padding: 1rem 2rem; background: #e0e0e0; color: #333; text-decoration: none; border-radius: 25px; font-weight: 600;">
-                        <i class="fas fa-leaf"></i> Care Tips
-                    </a>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(successModal);
-        
-        window.continueDemoShopping = function() {
-            successModal.remove();
-            clearCartAndOrderData();
-            if (isShopPage()) {
-                location.reload();
-            } else {
-                window.location.href = 'shop.html';
-            }
-        };
-        
-        setTimeout(() => {
-            clearCartAndOrderData();
-        }, 2000);
-    }
-
-    function saveOrderToFirebaseFromShop(orderId, orderData, paymentStatus, paymentId, amount) {
-        console.log('DEMO MODE: Saving order with delivery info to Firebase:', orderId);
-        
-        if (!firebaseAvailable || !dbAvailable) {
-            console.log('Firebase not available, order will be processed manually');
-            return;
-        }
-        
-        let currentUser = {};
-        try {
-            const userData = safeStorage.getItem('currentUser');
-            currentUser = userData ? JSON.parse(userData) : {};
-        } catch (error) {
-            console.warn('Failed to get current user data:', error);
-            currentUser = {};
-        }
-        
-        // Enhanced order document with delivery information
-        const orderDocument = {
-            orderId: orderId,
-            timestamp: new Date().toISOString(),
-            status: 'completed',
-            paymentMethod: 'demo_payfast',
-            paymentId: paymentId || null,
-            
-            // Enhanced pricing breakdown
-            subtotal: parseFloat(orderData.subtotal) || 0,
-            shippingCost: parseFloat(orderData.deliveryCost) || 0,
-            amount: parseFloat(amount) || (orderData ? orderData.total : 0) || 0,
-            
-            // Order items
-            items: orderData ? orderData.items || [] : [],
-            itemCount: orderData && orderData.items ? orderData.items.length : 0,
-            totalWeight: calculateTotalWeightFromItems(orderData.items || []),
-            
-            // Customer information
-            customerName: currentUser.username || 'Demo Customer',
-            customerEmail: currentUser.email || 'demo@teientamashii.com',
-            customerType: currentUser.id ? 'registered' : 'demo',
-            customerId: currentUser.id || null,
-            
-            // Delivery information
-            deliveryAddress: orderData && orderData.deliveryAddress ? {
-                streetAddress: orderData.deliveryAddress.address || '',
-                city: orderData.deliveryAddress.city || '',
-                province: orderData.deliveryAddress.province || '',
-                postalCode: orderData.deliveryAddress.postalCode || '',
-                fullAddress: formatFullAddress(orderData.deliveryAddress),
-                deliveryZone: determineDeliveryZone(
-                    orderData.deliveryAddress.city || '', 
-                    orderData.deliveryAddress.province || ''
-                ),
-                estimatedDeliveryTime: getEstimatedDeliveryTime(
-                    determineDeliveryZone(
-                        orderData.deliveryAddress.city || '', 
-                        orderData.deliveryAddress.province || ''
-                    )
-                )
-            } : null,
-            
-            // Shipping details
-            shippingDetails: {
-                originAddress: DELIVERY_CONFIG.originAddress,
-                shippingCost: parseFloat(orderData.deliveryCost) || 0,
-                deliveryZone: orderData.deliveryAddress ? determineDeliveryZone(
-                    orderData.deliveryAddress.city || '', 
-                    orderData.deliveryAddress.province || ''
-                ) : null,
-                totalWeight: calculateTotalWeightFromItems(orderData.items || []),
-                estimatedDelivery: orderData.deliveryAddress ? getEstimatedDeliveryTime(
-                    determineDeliveryZone(
-                        orderData.deliveryAddress.city || '', 
-                        orderData.deliveryAddress.province || ''
-                    )
-                ) : null
-            },
-            
-            // Payment gateway details
-            paymentGateway: 'demo_payfast',
-            paymentDetails: {
-                demo_payment_id: paymentId,
-                payment_status: paymentStatus,
-                amount_gross: amount,
-                subtotal_amount: parseFloat(orderData.subtotal) || 0,
-                shipping_amount: parseFloat(orderData.deliveryCost) || 0,
-                processed_at: new Date().toISOString(),
-                demo_mode: true
-            },
-            
-            // Order processing
-            fulfillmentStatus: 'demo',
-            shippingStatus: orderData.deliveryAddress ? 'pending_shipment' : 'no_shipping',
-            notes: 'Demo order - no actual fulfillment required',
-            
-            // Demo metadata
-            source: 'website_demo',
-            userAgent: navigator.userAgent,
-            referrer: document.referrer || null,
-            demoOrder: true,
-            
-            // Additional tracking
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-        
-        console.log('Enhanced order document with delivery:', orderDocument);
-        
-        // Save to Firebase
-        db.collection('orders').add(orderDocument)
-            .then((docRef) => {
-                console.log('Order with delivery info saved successfully with ID:', docRef.id);
-            })
-            .catch((error) => {
-                console.error('Error saving order to Firebase:', error);
+            // Show loading state
+            const buyButton = document.querySelector('.btn-buy');
+            if (buyButton) {
+                const originalText = buyButton.innerHTML;
+                buyButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirecting to PayFast...';
+                buyButton.disabled = true;
                 
-                // Try to save to localStorage as backup
-                try {
-                    const savedOrdersData = safeStorage.getItem('savedOrders');
-                    const savedOrders = savedOrdersData ? JSON.parse(savedOrdersData) : [];
-                    savedOrders.push(orderDocument);
-                    safeStorage.setItem('savedOrders', JSON.stringify(savedOrders));
-                    console.log('Order saved to localStorage as backup');
-                } catch (e) {
-                    console.error('Failed to save order to localStorage:', e);
-                }
-            });
-    }
-
-    function clearCartAndOrderData() {
-        safeStorage.removeItem('completedOrder');
-        safeStorage.removeItem('pendingOrder');
-        
-        clearCart(); // This now also clears delivery variables
-        
-        console.log('Cart and order data cleared successfully');
-    }
-
-    function handleDemoReturn() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const isDemoReturn = urlParams.get('demo_success');
-        const orderId = urlParams.get('order');
-        const paymentId = urlParams.get('demo_payment_id');
-        
-        if (isDemoReturn === 'true') {
-            console.log('Demo return detected:', { orderId, paymentId });
-            
-            let orderData = null;
-            try {
-                const completedOrderData = safeStorage.getItem('completedOrder');
-                orderData = completedOrderData ? JSON.parse(completedOrderData) : null;
-            } catch (error) {
-                console.warn('Failed to get completed order:', error);
+                // Reset button after timeout (in case user cancels)
+                setTimeout(() => {
+                    if (buyButton) {
+                        buyButton.innerHTML = originalText;
+                        buyButton.disabled = false;
+                    }
+                }, 10000);
             }
+
+            // Submit form to PayFast
+            document.body.appendChild(form);
+            console.log('Redirecting to PayFast with order:', orderId);
+            form.submit();
+            document.body.removeChild(form);
             
-            showDemoSuccessModal(orderId || 'DEMO_ORDER', 'COMPLETE', paymentId || 'DEMO_PAYMENT', orderData);
-            window.history.replaceState({}, document.title, window.location.pathname);
+        } catch (error) {
+            console.error('Error processing PayFast payment:', error);
+            alert('Error processing payment. Please try again.');
+            
+            // Reset button state
+            const buyButton = document.querySelector('.btn-buy');
+            if (buyButton) {
+                buyButton.innerHTML = '<i class="fas fa-lock"></i> Secure Checkout with PayFast';
+                buyButton.disabled = false;
+            }
         }
     }
+
+    // Cart checkout processing complete - demo functions removed
 
     try {
         const userData = safeStorage.getItem('currentUser');
@@ -2141,7 +2031,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('Failed to load current user:', error);
     }
 
-    console.log('Complete FIXED scripts-firebase.js loaded successfully with AGE + WEIGHT SYSTEM, DEMO PayFast integration, PERSISTENT CART, and DELIVERY CALCULATOR');
+    console.log('Complete scripts-firebase.js loaded successfully with AGE + WEIGHT SYSTEM, PayFast integration, PERSISTENT CART, and DELIVERY CALCULATOR');
 
     // Initialize delivery when cart items are loaded
     setTimeout(() => {
@@ -2153,6 +2043,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Find the cart buy/checkout button and make it trigger the PayFast demo checkout
     document.addEventListener('DOMContentLoaded', () => {
         // Add this block at the end of your DOMContentLoaded handler, after all cart logic:
+
+        
         setTimeout(() => {
             // Find the buy/checkout button in the cart (adjust selector if needed)
             let buyButton = document.querySelector('.btn-buy');
@@ -2164,7 +2056,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (totalSection && !cart.querySelector('.btn-buy')) {
                         buyButton = document.createElement('button');
                         buyButton.className = 'btn-buy';
-                        buyButton.innerHTML = '<i class="fas fa-credit-card"></i> Checkout (PayFast Demo)';
+                        buyButton.innerHTML = '<i class="fas fa-lock"></i> Secure Checkout with PayFast';
                         buyButton.style = 'width:100%;margin-top:1.5rem;padding:1rem 0;font-size:1.2rem;background:var(--primary-color);color:white;border:none;border-radius:30px;font-weight:700;cursor:pointer;';
                         totalSection.appendChild(buyButton);
                     }
@@ -2173,10 +2065,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (buyButton) {
                 buyButton.onclick = function(e) {
                     e.preventDefault();
-                    processDemoPayment(); // This is your PayFast demo checkout function
+                    processPayFastPayment(); // This will check authentication and redirect to PayFast
                 };
             }
         }, 1000);
+
+        // Ensure cart badge is updated on every page load
+       setTimeout(() => {
+       updateCartBadge();
+}, 100);
+
     });
 
     function attachCartBuyButtonHandler() {
@@ -2184,12 +2082,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (buyButton) {
             buyButton.onclick = function(e) {
                 e.preventDefault();
-                // Option 1: Just open the PayFast test page
-                window.open('payfast-test.html', '_blank');
-                
-                // Option 2: If you want to pass cart total, use:
-                // const total = calculateCartTotal(); // implement this if needed
-                // window.open(`payfast-test.html?amount=${encodeURIComponent(total)}`, '_blank');
+                processPayFastPayment(); // This will check authentication and redirect to PayFast
             };
         }
     }
@@ -2197,27 +2090,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Call this after rendering the cart and buy button
     attachCartBuyButtonHandler();
 
-    // When user enters address and clicks "Continue" or "Checkout":
-    function saveDeliveryAddress() {
-        const addressInput = document.getElementById('delivery-address');
-        const cityInput = document.getElementById('delivery-city');
-        const provinceInput = document.getElementById('delivery-province');
-        // Add postal code if you use it
-        const postalInput = document.getElementById('delivery-postal');
-
-        const deliveryAddress = {
-            address: addressInput ? addressInput.value.trim() : '',
-            city: cityInput ? cityInput.value.trim() : '',
-            province: provinceInput ? provinceInput.value.trim() : '',
-            postalCode: postalInput ? postalInput.value.trim() : ''
-        };
-        localStorage.setItem('deliveryAddress', JSON.stringify(deliveryAddress));
-    }
-
-    // Call this function when the user confirms their address (before redirecting to payfast-test.html)
-    document.getElementById('your-checkout-button').addEventListener('click', function(e) {
-        saveDeliveryAddress();
-        // Now redirect to payfast-test.html
-        window.location.href = 'payfast-test.html';
-    });
+    // Enhanced delivery system integrated into main cart flow
 });

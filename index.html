@@ -168,17 +168,52 @@ if (window.location.pathname === '/success.html' || window.location.pathname ===
         </div>
     </section>
 
-    <!-- Cart -->
-    <div class="cart-section" id="cart-section" style="display: none;">
-    <div class="cart-dropdown">
-        <div id="cart-container" class="cart-container">
-            <!-- Cart content will be dynamically loaded here -->
-            <div class="cart-empty">
-                <i class="fas fa-shopping-cart"></i>
-                <p>Your cart is empty</p>
+   
+ <!-- Cart -->
+<div class="cart">
+    <h2 class="cart-title">Your Cart</h2>
+    <div class="cart-content"></div>
+    
+    <!-- Delivery Section (will be added dynamically) -->
+    
+    <div class="total">
+        <div class="cost-breakdown">
+            <div class="subtotal-row">
+                <span class="subtotal-title">Subtotal:</span>
+                <span class="subtotal-price" id="subtotal-price">R0</span>
+            </div>
+            <div class="delivery-row" id="delivery-cost-row" style="display: none;">
+                <span class="delivery-title">Delivery:</span>
+                <span class="delivery-price" id="delivery-price">R0</span>
+            </div>
+            <div class="total-row">
+                <span class="total-title">Total:</span>
+                <span class="total-price" id="final-total-price">R0</span>
             </div>
         </div>
     </div>
+    
+    <!-- PayFast Payment Security Info -->
+    <div class="payment-security">
+        <div class="security-badge">
+            <i class="fas fa-shield-alt"></i>
+            <span>Secure Payment by PayFast</span>
+        </div>
+        <div style="color: #666; font-size: 0.8rem;">
+            Your payment information is encrypted and secure
+        </div>
+        <div class="payment-methods">
+            <span class="payment-method">💳 Credit Card</span>
+            <span class="payment-method">🏦 EFT</span>
+            <span class="payment-method">⚡ Instant EFT</span>
+            <span class="payment-method">📱 SnapScan</span>
+        </div>
+    </div>
+    
+    <button class="btn-buy">
+        <i class="fas fa-lock"></i> Secure Checkout with PayFast
+    </button>
+    <i class="fas fa-times" id="cart-close"></i>
 </div>
 
 <!-- Update your existing cart icon to include count -->
@@ -225,29 +260,35 @@ if (window.location.pathname === '/success.html' || window.location.pathname ===
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
-    <!-- Initialize Firebase -->
-    <script>
-      const firebaseConfig = {
-        apiKey: "AIzaSyCjA2u__EfEtTbWCISNFq-YtdH4iAmpZ6w",
-        authDomain: "teien-tamashii.firebaseapp.com",
-        projectId: "teien-tamashii",
-        storageBucket: "teien-tamashii.firebasestorage.app",
-        messagingSenderId: "754182439532",
-        appId: "1:754182439532:web:e478ed437e224a91be4e49",
-        measurementId: "G-0SXMM7NMLD"
-      };
-      
-      // Initialize Firebase
-      firebase.initializeApp(firebaseConfig);
-      const db = firebase.firestore();
-    </script>
+        <!-- Firebase SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
-    <!-- Use the correct Firebase JavaScript file -->
-    <script src="scripts-firebase.js"></script>
+
+            <!-- Initialize Firebase synchronously BEFORE scripts-firebase.js -->
+            <script>
+                if (!window.firebase || !window.firebase.firestore) {
+                    console.error('Firebase SDK not loaded!');
+                } else {
+                    if (!window.firebase.apps.length) {
+                        const firebaseConfig = {
+                            apiKey: "AIzaSyCjA2u__EfEtTbWCISNFq-YtdH4iAmpZ6w",
+                            authDomain: "teien-tamashii.firebaseapp.com",
+                            projectId: "teien-tamashii",
+                            storageBucket: "teien-tamashii.firebasestorage.app",
+                            messagingSenderId: "754182439532",
+                            appId: "1:754182439532:web:e478ed437e224a91be4e49",
+                            measurementId: "G-0SXMM7NMLD"
+                        };
+                        firebase.initializeApp(firebaseConfig);
+                    }
+                    window.db = firebase.firestore();
+                }
+            </script>
+
+        <!-- scripts-firebase.js must load AFTER Firebase is initialized -->
+        <script src="scripts-firebase.js"></script>
 
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js"></script>

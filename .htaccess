@@ -1,5 +1,32 @@
-# Enable rewrite engine
+# Enhanced security configuration for production deployment
+
+# Security Headers
+Header always set X-Content-Type-Options nosniff
+Header always set X-Frame-Options DENY
+Header always set X-XSS-Protection "1; mode=block"
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+
+# Content Security Policy
+Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.firebaseapp.com https://*.googleapis.com https://sandbox.payfast.co.za; form-action 'self' https://sandbox.payfast.co.za https://www.payfast.co.za; frame-ancestors 'none';"
+
+# HTTPS Redirect (when using Apache with SSL)
 RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Hide sensitive files
+<FilesMatch "\.(env|config|log)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Admin panel protection - Add IP restriction for production
+<Files "admin.html">
+    # Uncomment and add your IP addresses for production
+    # Require ip 192.168.1.0/24
+    # Require ip YOUR.OFFICE.IP.ADDRESS
+</Files>
 
 # Handle success.html routing
 RewriteCond %{REQUEST_FILENAME} !-f
@@ -13,20 +40,26 @@ RewriteRule ^success$ /success.html [L,QSA]
 # Alternative fallback to shop.html with success parameters
 RewriteCond %{REQUEST_URI} ^/success.html$
 RewriteCond %{REQUEST_FILENAME} !-f
-RewriteRule ^(.*)$ /shop.html?payfast_success=true [L,QSA,R=302]
+ReWriteRule ^(.*)$ /shop.html?payfast_success=true [L,QSA,R=302]
 
-# Security headers
-Header always set X-Content-Type-Options nosniff
-Header always set X-Frame-Options DENY
-Header always set X-XSS-Protection "1; mode=block"
+# Block common attack patterns
+RewriteCond %{QUERY_STRING} (<|%3C).*script.*(>|%3E) [NC,OR]
+RewriteCond %{QUERY_STRING} GLOBALS(=|\[|\%[0-9A-Z]{0,2}) [OR]
+RewriteCond %{QUERY_STRING} _REQUEST(=|\[|\%[0-9A-Z]{0,2}) [OR]
+RewriteCond %{QUERY_STRING} ^.*(\[|\]|\(|\)|<|>|ê|"|;|\?|\*|=$).* [NC,OR]
+RewriteCond %{QUERY_STRING} ^.*("|'|<|>|\|).* [NC,OR]
+RewriteCond %{QUERY_STRING} ^.*(%0A|%0D|%27|%3C|%3E|%00).* [NC]
+RewriteRule ^(.*)$ - [F,L]
 
 # Cache control for static files
 <FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg)$">
     ExpiresActive On
     ExpiresDefault "access plus 1 month"
+    Header set Cache-Control "public, immutable"
 </FilesMatch>
 
-# Ensure HTML files are served correctly
+# Ensure HTML files are served correctly with security
 <FilesMatch "\.html$">
     Header set Cache-Control "no-cache, must-revalidate"
+    Header set X-Content-Type-Options nosniff
 </FilesMatch>
