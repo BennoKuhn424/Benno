@@ -276,8 +276,12 @@
                     cart = backup.cartItems || [];
                     delivery = backup.deliveryAddress || {};
                     pickupSelected = backup.pickupSelected || false;
-                    currentUser = backup.currentUser || null;
+                    // Make sure to get the complete user data from backup
+                    if (backup.currentUser && !currentUser) {
+                        currentUser = backup.currentUser;
+                    }
                     console.log('Restored from sessionStorage backup:', backup);
+                    console.log('Restored user data:', currentUser);
                 }
             }
             
@@ -314,10 +318,13 @@
                     Amount: ${amount || 'None'}<br>
                     Cart Items: ${cart.length}<br>
                     Current User: ${currentUser ? currentUser.email : 'None'}<br>
+                    Customer Name: ${currentUser ? currentUser.username : 'None'}<br>
+                    Customer Role: ${currentUser ? currentUser.role : 'None'}<br>
                     Pickup Selected: ${pickupSelected}<br>
                     Delivery Address: ${JSON.stringify(delivery)}<br>
                     localStorage Available: ${typeof(Storage) !== "undefined"}<br>
                     sessionStorage Available: ${typeof(sessionStorage) !== "undefined"}<br>
+                    Full User Data: ${currentUser ? JSON.stringify(currentUser) : 'None'}<br>
                     All URL Params: ${JSON.stringify(Object.fromEntries(urlParams.entries()))}<br>
                     <br><strong>Test URLs:</strong><br>
                     <a href="?m_payment_id=TEST123&amount_gross=150.00&debug=true" style="color: white;">Test with data</a><br>
@@ -389,6 +396,15 @@
                 <div class="order-info-label">Order Date</div>
                 <div class="order-info-value">${orderDate}</div>
             </div>`;
+            
+            // Add customer name if available
+            if (currentUser && currentUser.username) {
+                headerHTML += `<div class="order-info-item">
+                    <div class="order-info-label">Customer</div>
+                    <div class="order-info-value">${currentUser.username}</div>
+                </div>`;
+            }
+            
             headerHTML += '</div>';
             
             // Delivery/Pickup information
@@ -607,10 +623,24 @@
                     deliveryDetails: deliveryDetails,
                     deliveryAddress: pickupSelected ? null : delivery,
                     
-                    // Customer information (if available from localStorage)
-                    customerName: localStorage.getItem('customerName') || 'Guest Customer',
-                    customerEmail: localStorage.getItem('customerEmail') || '',
+                    // Customer information (enhanced to include all user data)
+                    customerName: (currentUser && currentUser.username) ? currentUser.username : 
+                                 localStorage.getItem('customerName') || 'Guest Customer',
+                    customerEmail: (currentUser && currentUser.email) ? currentUser.email :
+                                  localStorage.getItem('customerEmail') || '',
                     customerPhone: localStorage.getItem('customerPhone') || '',
+                    customerRole: (currentUser && currentUser.role) ? currentUser.role : 'user',
+                    customerId: (currentUser && currentUser.id) ? currentUser.id : null,
+                    
+                    // Additional customer metadata
+                    isGuestOrder: !currentUser,
+                    customerData: currentUser ? {
+                        id: currentUser.id || null,
+                        username: currentUser.username || '',
+                        email: currentUser.email || '',
+                        role: currentUser.role || 'user',
+                        lastLogin: currentUser.lastLogin || null
+                    } : null,
                     
                     // Timestamps
                     timestamp: Date.now(),
