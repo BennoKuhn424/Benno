@@ -185,6 +185,13 @@
         <h1>Thank You! Your Payment Was Successful</h1>
         <p>Your order has been received and is being processed.<br>
         You will receive an email confirmation soon.</p>
+        
+        <!-- Debug information (remove in production) -->
+        <div id="debug-info" style="display: none; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 5px; margin: 10px 0; font-size: 12px; text-align: left;">
+            <strong>Debug Info:</strong><br>
+            <div id="debug-content"></div>
+        </div>
+        
         <div class="order-details" id="order-details"></div>
         <a href="shop.html" class="manual-link">Back to Shop</a>
     </div>
@@ -209,28 +216,146 @@
         }
         const db = firebase.firestore();
 
-        // --- Get PayFast parameters ---
+        // --- Get PayFast parameters with enhanced debugging ---
         const urlParams = new URLSearchParams(window.location.search);
-        const paymentId = urlParams.get('pf_payment_id') || '';
-        const paymentStatus = urlParams.get('payment_status') || 'COMPLETE';
-        const orderId = urlParams.get('m_payment_id') || '';
-        const amount = urlParams.get('amount_gross') || '';
+        
+        // Try multiple possible parameter names that PayFast might use
+        const paymentId = urlParams.get('pf_payment_id') || 
+                         urlParams.get('payment_id') || 
+                         urlParams.get('id') || '';
+        
+        const paymentStatus = urlParams.get('payment_status') || 
+                            urlParams.get('status') || 
+                            'COMPLETE';
+        
+        const orderId = urlParams.get('m_payment_id') || 
+                       urlParams.get('custom_str1') || 
+                       urlParams.get('order_id') ||
+                       urlParams.get('reference') || '';
+        
+        const amount = urlParams.get('amount_gross') || 
+                      urlParams.get('amount') || 
+                      urlParams.get('total') || '';
+        
+        // Log all URL parameters for debugging
+        console.log('All URL parameters:', Object.fromEntries(urlParams.entries()));
+        console.log('Extracted data:', { paymentId, paymentStatus, orderId, amount });
 
-        // --- Get cart and delivery info from localStorage ---
+        // --- Get cart and delivery info from localStorage with fallback ---
         let cart = [];
         let delivery = {};
         let pickupSelected = false;
+        let currentUser = null;
+        
         try {
-            cart = JSON.parse(localStorage.getItem('cartItems')) || [];
-            delivery = JSON.parse(localStorage.getItem('deliveryAddress')) || {};
+            // Try to get cart data from localStorage first
+            const cartData = localStorage.getItem('cartItems');
+            cart = cartData ? JSON.parse(cartData) : [];
+            console.log('Cart from localStorage:', cart);
+            
+            // Try to get delivery data
+            const deliveryData = localStorage.getItem('deliveryAddress');
+            delivery = deliveryData ? JSON.parse(deliveryData) : {};
+            console.log('Delivery from localStorage:', delivery);
+            
+            // Get pickup selection
             pickupSelected = localStorage.getItem('pickupSelected') === 'true';
-        } catch {
-            console.warn('Error parsing cart data from localStorage');
+            console.log('Pickup selected:', pickupSelected);
+            
+            // Get current user
+            const userData = localStorage.getItem('currentUser');
+            currentUser = userData ? JSON.parse(userData) : null;
+            console.log('Current user:', currentUser);
+            
+            // If no localStorage data, try sessionStorage backup
+            if (!cart.length && orderId) {
+                console.log('Trying sessionStorage backup for order:', orderId);
+                const backupData = sessionStorage.getItem('pendingOrder_' + orderId);
+                if (backupData) {
+                    const backup = JSON.parse(backupData);
+                    cart = backup.cartItems || [];
+                    delivery = backup.deliveryAddress || {};
+                    pickupSelected = backup.pickupSelected || false;
+                    currentUser = backup.currentUser || null;
+                    console.log('Restored from sessionStorage backup:', backup);
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error parsing data from storage:', error);
         }
 
-        // --- Show enhanced order details ---
+        // --- Create fallback data if no localStorage data available ---
+        if (!cart.length && (orderId || paymentId)) {
+            console.log('No cart data found, creating fallback order info');
+            // If we have payment info but no cart, create a generic order
+            cart = [{
+                name: 'Bonsai Order',
+                price: parseFloat(amount) || 0,
+                quantity: 1,
+                image: 'https://via.placeholder.com/80x80?text=Bonsai'
+            }];
+        }
+
+        // --- Show debug information (for troubleshooting) ---
+        function showDebugInfo() {
+            const debugDiv = document.getElementById('debug-info');
+            const debugContent = document.getElementById('debug-content');
+            
+            // Show debug if URL contains debug parameter or if no data found
+            const showDebug = urlParams.get('debug') === 'true' || (!orderId && !paymentId && !cart.length);
+            
+            if (showDebug && debugDiv && debugContent) {
+                debugDiv.style.display = 'block';
+                debugContent.innerHTML = `
+                    URL: ${window.location.href}<br>
+                    Order ID: ${orderId || 'None'}<br>
+                    Payment ID: ${paymentId || 'None'}<br>
+                    Amount: ${amount || 'None'}<br>
+                    Cart Items: ${cart.length}<br>
+                    Current User: ${currentUser ? currentUser.email : 'None'}<br>
+                    Pickup Selected: ${pickupSelected}<br>
+                    Delivery Address: ${JSON.stringify(delivery)}<br>
+                    localStorage Available: ${typeof(Storage) !== "undefined"}<br>
+                    sessionStorage Available: ${typeof(sessionStorage) !== "undefined"}<br>
+                    All URL Params: ${JSON.stringify(Object.fromEntries(urlParams.entries()))}<br>
+                    <br><strong>Test URLs:</strong><br>
+                    <a href="?m_payment_id=TEST123&amount_gross=150.00&debug=true" style="color: white;">Test with data</a><br>
+                    <a href="?debug=true" style="color: white;">Test empty</a>
+                `;
+            }
+        }
+
+        // Show debug info
+        showDebugInfo();
+
+        // --- Show enhanced order details with better fallback handling ---
         function renderOrderDetails() {
             const detailsDiv = document.getElementById('order-details');
+            
+            // Show debug info if no data found
+            if (!orderId && !paymentId && !cart.length) {
+                detailsDiv.innerHTML = `
+                    <div style="background: rgba(255,255,255,0.2); padding: 20px; border-radius: 10px; margin: 20px 0;">
+                        <h3 style="color: #fff; margin-bottom: 15px;">
+                            <i class="fas fa-info-circle"></i> Order Processing
+                        </h3>
+                        <p>Your payment was successful! We're processing your order details.</p>
+                        <div style="margin-top: 15px; font-size: 14px; opacity: 0.9;">
+                            <strong>What happens next:</strong><br>
+                            • You'll receive an email confirmation within 30 minutes<br>
+                            • Our team will process your order within 1 business day<br>
+                            • You'll be contacted for delivery/pickup arrangements
+                        </div>
+                        <div style="margin-top: 20px;">
+                            <strong>Need help?</strong><br>
+                            Email: info@teientamashii.co.za<br>
+                            Phone: +27 (0)12 345 6789
+                        </div>
+                    </div>
+                `;
+                return;
+            }
             
             // Order header with key information
             let headerHTML = '<div class="order-header">';
@@ -286,6 +411,14 @@
                         <p><strong>City:</strong> ${delivery.city || 'N/A'}</p>
                         <p><strong>Province:</strong> ${delivery.province || 'N/A'}</p>
                         <p><strong>Postal Code:</strong> ${delivery.postalCode || 'N/A'}</p>
+                    </div>
+                `;
+            } else {
+                deliveryHTML = `
+                    <div class="delivery-info">
+                        <h4><i class="fas fa-info-circle"></i> Delivery Information</h4>
+                        <p>Delivery details will be confirmed via email or phone call within 24 hours.</p>
+                        <p><strong>Contact:</strong> info@teientamashii.co.za | +27 (0)12 345 6789</p>
                     </div>
                 `;
             }
@@ -358,18 +491,60 @@
         }
         renderOrderDetails();
 
-        // --- Store enhanced order in Firestore (admin orders) ---
-        async function storeOrder() {
-            if (!cart.length) {
-                console.error('No cart data found, order not saved.');
-                document.getElementById('order-details').innerHTML += `
-                    <div style="color:#ffbaba;background:#d8000c;padding:10px;border-radius:8px;margin-top:10px;">
-                        No cart data found, order not saved.
-                    </div>`;
-                return;
+        // --- Try to retrieve order from Firestore if local data is missing ---
+        async function tryRetrieveOrderFromFirestore() {
+            if (cart.length > 0 || !orderId) {
+                return; // We have local data or no order ID to search with
             }
             
             try {
+                console.log('Attempting to retrieve order from Firestore...', orderId);
+                const orderQuery = await db.collection('orders').where('orderId', '==', orderId).get();
+                
+                if (!orderQuery.empty) {
+                    console.log('Found order in Firestore');
+                    orderQuery.forEach((doc) => {
+                        const orderData = doc.data();
+                        if (orderData.items && orderData.items.length > 0) {
+                            cart = orderData.items;
+                            delivery = orderData.deliveryAddress || {};
+                            pickupSelected = orderData.deliveryMethod === 'pickup';
+                            
+                            // Re-render with retrieved data
+                            renderOrderDetails();
+                        }
+                    });
+                } else {
+                    console.log('Order not found in Firestore');
+                }
+            } catch (error) {
+                console.error('Error retrieving order from Firestore:', error);
+            }
+        }
+
+        // Try to retrieve order data if missing
+        setTimeout(tryRetrieveOrderFromFirestore, 1000);
+
+        // --- Store enhanced order in Firestore (admin orders) with better error handling ---
+        async function storeOrder() {
+            try {
+                // If no cart data and no payment info, don't save empty order
+                if (!cart.length && !orderId && !paymentId) {
+                    console.log('No order data to save');
+                    return;
+                }
+                
+                // If no cart data but we have payment info, create minimal order
+                if (!cart.length && (orderId || paymentId)) {
+                    console.log('Creating minimal order from payment data');
+                    cart = [{
+                        name: 'Bonsai Order (Details pending)',
+                        price: parseFloat(amount) || 0,
+                        quantity: 1,
+                        image: 'https://via.placeholder.com/80x80?text=Bonsai',
+                        total: parseFloat(amount) || 0
+                    }];
+                }
                 // Clean and prepare cart items with full details
                 const orderItems = cart.map(item => {
                     const cleanItem = {
