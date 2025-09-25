@@ -1955,7 +1955,23 @@ function updateCartBadge() {
             const form = document.createElement('form');
             form.action = 'https://sandbox.payfast.co.za/eng/process'; // Use sandbox for testing
             form.method = 'post';
-            form.target = '_blank';
+            form.target = '_self'; // Changed from '_blank' to '_self' to maintain localStorage
+            
+            // Store order data in sessionStorage as backup (survives page redirects)
+            try {
+                const orderBackup = {
+                    orderId: orderId,
+                    cartItems: cartItems,
+                    deliveryAddress: deliveryAddress,
+                    pickupSelected: !deliveryAddress,
+                    currentUser: currentUser,
+                    timestamp: Date.now()
+                };
+                sessionStorage.setItem('pendingOrder_' + orderId, JSON.stringify(orderBackup));
+                console.log('Order backup stored in sessionStorage');
+            } catch (error) {
+                console.warn('Failed to store order backup:', error);
+            }
             
             // PayFast required parameters
             const payfastData = {
